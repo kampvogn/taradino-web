@@ -38,6 +38,13 @@ void DrawFadeout(void);
 void DrawBlankScreen(void);
 void DrawClearBuffer(void);
 
+
+// Wide screens: cinematics are made for 640 columns; draw them centred
+#define CIN_WIDTH                                                              \
+	(!StretchScreen && iGLOBAL_SCREENWIDTH > 640 ? 640 : iGLOBAL_SCREENWIDTH)
+#define CIN_XOFS                                                               \
+	(!StretchScreen && iGLOBAL_SCREENWIDTH > 640 ? (iGLOBAL_SCREENWIDTH - 640) / 2 : 0)
+
 /*
 ===============
 =
@@ -327,10 +334,10 @@ void DrawCinematicBackground(backevent *back)
 		DrawClearBuffer();
 
 	{
-		buf = (byte *)bufferofs + ylookup[back->yoffset];
+		buf = (byte *)bufferofs + ylookup[back->yoffset] + CIN_XOFS;
 		offset = (back->currentoffset >> FRACTIONBITS);
 
-		for (i = 0; i < iGLOBAL_SCREENWIDTH; i++, offset++, buf++)
+		for (i = 0; i < CIN_WIDTH; i++, offset++, buf++)
 		{
 			if (offset >= back->backdropwidth)
 				src = &(pic->data) +
@@ -369,10 +376,10 @@ void DrawCinematicMultiBackground(backevent *back)
 		DrawClearBuffer();
 
 	{
-		buf = (byte *)bufferofs + ylookup[back->yoffset];
+		buf = (byte *)bufferofs + ylookup[back->yoffset] + CIN_XOFS;
 		offset = (back->currentoffset >> FRACTIONBITS);
 
-		for (i = 0; i < iGLOBAL_SCREENWIDTH; i++, offset++, buf++)
+		for (i = 0; i < CIN_WIDTH; i++, offset++, buf++)
 		{
 			if (offset >= back->backdropwidth)
 				src = back->data +
@@ -413,10 +420,10 @@ void DrawCinematicBackdrop(backevent *back)
 	toppost = -p->topoffset + back->yoffset;
 
 	{
-		buf = (byte *)bufferofs;
+		buf = (byte *)bufferofs + CIN_XOFS;
 		offset = (back->currentoffset >> FRACTIONBITS);
 
-		for (i = 0; i < iGLOBAL_SCREENWIDTH; i++, offset++, buf++)
+		for (i = 0; i < CIN_WIDTH; i++, offset++, buf++)
 		{
 			if (offset >= back->backdropwidth)
 				src = shape + p->collumnofs[offset - back->backdropwidth];
@@ -479,7 +486,7 @@ void DrawCinematicSprite(spriteevent *sprite)
 
 	cin_ycenter = sprite->y >> FRACTIONBITS;
 	cin_invscale = (height << FRACTIONBITS) / p->origsize;
-	buf = (byte *)bufferofs;
+	buf = (byte *)bufferofs + CIN_XOFS;
 	tx = -p->leftoffset;
 	xcent = (sprite->x & 0xffff0000) - (height << (FRACTIONBITS - 1)) +
 			(FRACTIONUNIT >> 1);
@@ -488,7 +495,7 @@ void DrawCinematicSprite(spriteevent *sprite)
 	// calculate edges of the shape
 	//
 	x1 = (xcent + (tx * cin_invscale)) >> FRACTIONBITS;
-	if (x1 >= iGLOBAL_SCREENWIDTH)
+	if (x1 >= CIN_WIDTH)
 		return; // off the right side
 	tx += p->width;
 	x2 = ((xcent + (tx * cin_invscale)) >> FRACTIONBITS) - 1;
@@ -504,7 +511,7 @@ void DrawCinematicSprite(spriteevent *sprite)
 	}
 	else
 		frac = 0;
-	x2 = x2 >= iGLOBAL_SCREENWIDTH ? (iGLOBAL_SCREENWIDTH - 1) : x2;
+	x2 = x2 >= CIN_WIDTH ? (CIN_WIDTH - 1) : x2;
 
 	cin_texturemid = (((p->origsize >> 1) + p->topoffset) << FRACTIONBITS) +
 					 (FRACTIONUNIT >> 1);
@@ -811,12 +818,12 @@ void ProfileDisplay(void)
 	byte *buf;
 	int i;
 	byte src[200];
-	int width = StretchScreen ? 320 : iGLOBAL_SCREENWIDTH;
+	int width = StretchScreen ? 320 : CIN_WIDTH;
 
 	DrawClearBuffer();
 
 	{
-		buf = (byte *)bufferofs;
+		buf = (byte *)bufferofs + CIN_XOFS;
 
 		for (i = 0; i < width; i++, buf++)
 		{
@@ -840,14 +847,14 @@ void DrawPostPic(int lumpnum)
 	lpic_t *pic;
 	int i;
 	int height;
-	int width = StretchScreen ? 320 : iGLOBAL_SCREENWIDTH;
+	int width = StretchScreen ? 320 : CIN_WIDTH;
 
 	pic = (lpic_t *)W_CacheLumpNum(lumpnum, PU_CACHE, Cvt_lpic_t, 1);
 
 	height = pic->height;
 
 	{
-		buf = (byte *)bufferofs;
+		buf = (byte *)bufferofs + CIN_XOFS;
 
 		src = &(pic->data);
 

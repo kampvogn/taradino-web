@@ -448,10 +448,20 @@ static void StretchMemPicture()
 	src.w = 320;
 	src.h = 200;
 
-	dest.x = 0;
-	dest.y = 0;
-	dest.w = iGLOBAL_SCREENWIDTH;
+	// wide screens: the 320x200 screens (menus, titles) keep 4:3 in the
+	// middle, black at the sides
+	dest.w = iGLOBAL_SCREENWIDTH > 640 ? 640 : iGLOBAL_SCREENWIDTH;
 	dest.h = iGLOBAL_SCREENHEIGHT;
+	dest.x = (iGLOBAL_SCREENWIDTH - dest.w) / 2;
+	dest.y = 0;
+	if (dest.x > 0)
+	{
+		SDL_Rect side = { 0, 0, dest.x, dest.h };
+		SDL_FillRect(sdl_surface, &side, 0);
+		side.x = dest.x + dest.w;
+		side.w = iGLOBAL_SCREENWIDTH - side.x;
+		SDL_FillRect(sdl_surface, &side, 0);
+	}
 	StretchFunc.BlitScaled(unstretch_sdl_surface, &src, sdl_surface, &dest);
 }
 

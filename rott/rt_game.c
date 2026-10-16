@@ -386,16 +386,24 @@ void DrawPlayScreen(boolean bufferofsonly)
 	{
 		if (iGLOBAL_SCREENWIDTH >= 640)
 		{
-			// use this as dummy pic to fill out missing bar
+			int fill;
+
+			// use this as dummy pic to fill out missing bar (on wide
+			// screens repeatedly, the last copy flush with the right edge)
 			shape = (pic_t *)W_CacheLumpName("bottbar", PU_CACHE, Cvt_pic_t, 1);
 			// GameMemToScreen( shape, 0, 0, bufferofsonly );
-			GameMemToScreen(shape, 320, 0, bufferofsonly);
-			// delete hart in middle of topbar
-			DrawPPic(323, 1, 8 >> 2, 16, (byte *)&erase->data, 2, true,
-					 bufferofsonly);
-			// delete bullet in end of topbar
-			DrawPPic(620, 1, 8 >> 2, 16, (byte *)&erase->data, 2, true,
-					 bufferofsonly);
+			for (fill = 320; fill < iGLOBAL_SCREENWIDTH; fill += 320)
+			{
+				if (fill > iGLOBAL_SCREENWIDTH - 320)
+					fill = iGLOBAL_SCREENWIDTH - 320;
+				GameMemToScreen(shape, fill, 0, bufferofsonly);
+				// delete hart in middle of topbar
+				DrawPPic(fill + 3, 1, 8 >> 2, 16, (byte *)&erase->data, 2,
+						 true, bufferofsonly);
+				// delete bullet in end of topbar
+				DrawPPic(fill + 300, 1, 8 >> 2, 16, (byte *)&erase->data, 2,
+						 true, bufferofsonly);
+			}
 			shape =
 				(pic_t *)W_CacheLumpName("stat_bar", PU_CACHE, Cvt_pic_t, 1);
 			GameMemToScreen(shape, 0, 0, bufferofsonly);
@@ -444,17 +452,37 @@ void DrawPlayScreen(boolean bufferofsonly)
 				// statusbar dosent cover hole screen, because its a lump
 				// picture width max 320 first write dummy shape and next over
 				// it
-				GameMemToScreen(shape, 320, (224 * 2) + 16 - ShowKillsYoffset,
-								bufferofsonly);
+				int fill, last = iGLOBAL_SCREENWIDTH - 320;
+
+				// wide screens: more copies, the last one flush with the
+				// right edge; the heart stays in the first, the bullet (ammo)
+				// in the last
+				for (fill = 320; fill < last + 320; fill += 320)
+				{
+					if (fill > last)
+						fill = last;
+					GameMemToScreen(shape, fill,
+									(224 * 2) + 16 - ShowKillsYoffset,
+									bufferofsonly);
+				}
 				// copy next shape to mem
 				GameMemToScreen(shape, 0, (224 * 2) + 16 - ShowKillsYoffset,
 								bufferofsonly);
-				// delete bullet in middle of shape picture
-				DrawPPic(310, (224 * 2) + 17 - ShowKillsYoffset, 8 >> 2, 16,
-						 (byte *)&erase->data, 2, true, bufferofsonly);
-				// delete hart in middle of shape picture
-				DrawPPic(324, (224 * 2) + 17 - ShowKillsYoffset, 8 >> 2, 16,
-						 (byte *)&erase->data, 2, true, bufferofsonly);
+				for (fill = 0; fill < last + 320; fill += 320)
+				{
+					if (fill > last)
+						fill = last;
+					// delete bullet in middle of shape picture
+					if (fill < last)
+						DrawPPic(fill + 310, (224 * 2) + 17 - ShowKillsYoffset,
+								 8 >> 2, 16, (byte *)&erase->data, 2, true,
+								 bufferofsonly);
+					// delete hart in middle of shape picture
+					if (fill > 0)
+						DrawPPic(fill + 4, (224 * 2) + 17 - ShowKillsYoffset,
+								 8 >> 2, 16, (byte *)&erase->data, 2, true,
+								 bufferofsonly);
+				}
 			}
 			else
 			{

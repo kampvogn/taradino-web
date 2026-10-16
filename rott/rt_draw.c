@@ -2948,7 +2948,10 @@ void DrawRotatedScreen(int cx, int cy, byte *destscreen, int angle, int scale,
 	else if ((iGLOBAL_SCREENWIDTH >= 640) && (masked == false))
 	{
 		xst = (((-cx) * s) + ((268) << 16)) - (cy * c);
-		xct = (((-cx) * c) + ((317) << 16) + (1 << 18) - (1 << 16)) + (cy * s);
+		// the column centre moves with the width (317 at 640)
+		xct = (((-cx) * c) + ((317 + (iGLOBAL_SCREENWIDTH - 640) / 2) << 16) +
+			   (1 << 18) - (1 << 16)) +
+			  (cy * s);
 	} // y=268;x=317
 
 	mr_xstep = s;
@@ -5080,7 +5083,9 @@ void DrawRotRow(int count, byte *dest, byte *src)
 		while (count--)
 		{
 			eax = edx >> 16;
-			if (eax < (256 * 2.0) && (ecx >> 16) < (512 * 1.8))
+			// RotatedImage is 1024 wide (921 columns were used at 640)
+			if (eax < (256 * 2.0) &&
+				(ecx >> 16) < (iGLOBAL_SCREENWIDTH > 640 ? 1024 : (512 * 1.8)))
 			{
 				eax = (eax << 10) | ((ecx << 6) >> (32 - 10));
 			}

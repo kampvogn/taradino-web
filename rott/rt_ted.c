@@ -1034,7 +1034,11 @@ void PreCache(void)
 	int ticdelay = 0;
 	byte *tempbuf;
 
-	double Gs = (iGLOBAL_SCREENWIDTH * 100.0 / 320.0) / 100.0;
+	// the LEDs go on the (stretched, on wide screens centred) loading screen
+	double Gs = iGLOBAL_SCREENWIDTH > 640
+					? 2.0
+					: (iGLOBAL_SCREENWIDTH * 100.0 / 320.0) / 100.0;
+	int ledx = 72 + (iGLOBAL_SCREENWIDTH > 640 ? (iGLOBAL_SCREENWIDTH - 640) / 2 : 0);
 
 	// SetTextMode (  );
 
@@ -1092,16 +1096,16 @@ void PreCache(void)
 				else if (iGLOBAL_SCREENWIDTH >= 640)
 				{
 					DrawNormalSprite(
-						72 + (Gs * (lastmem << 2)), 446,
+						ledx + (Gs * (lastmem << 2)), 446,
 						W_GetNumForName("led1")); // led1 progressbar
 					DrawNormalSprite(
-						72 + (Gs * (lastmem << 2)), 446 + 3,
+						ledx + (Gs * (lastmem << 2)), 446 + 3,
 						W_GetNumForName("led1")); // led1 progressbar
 					DrawNormalSprite(
-						72 + 3 + (Gs * (lastmem << 2)), 446,
+						ledx + 3 + (Gs * (lastmem << 2)), 446,
 						W_GetNumForName("led1")); // led1 progressbar
 					DrawNormalSprite(
-						72 + 3 + (Gs * (lastmem << 2)), 446 + 3,
+						ledx + 3 + (Gs * (lastmem << 2)), 446 + 3,
 						W_GetNumForName("led1")); // led1 progressbar
 				}
 
@@ -1122,16 +1126,16 @@ void PreCache(void)
 				else if (iGLOBAL_SCREENWIDTH >= 640)
 				{
 					DrawNormalSprite(
-						72 + (Gs * (lastcache << 2)), 458,
+						ledx + (Gs * (lastcache << 2)), 458,
 						W_GetNumForName("led2")); // led2 progressbar
 					DrawNormalSprite(
-						72 + (Gs * (lastcache << 2)), 458 + 3,
+						ledx + (Gs * (lastcache << 2)), 458 + 3,
 						W_GetNumForName("led2")); // led2 progressbar
 					DrawNormalSprite(
-						72 + 3 + (Gs * (lastcache << 2)), 458,
+						ledx + 3 + (Gs * (lastcache << 2)), 458,
 						W_GetNumForName("led2")); // led2 progressbar
 					DrawNormalSprite(
-						72 + 3 + (Gs * (lastcache << 2)), 458 + 3,
+						ledx + 3 + (Gs * (lastcache << 2)), 458 + 3,
 						W_GetNumForName("led2")); // led2 progressbar
 				}
 				DisableScreenStretch(); // bna++

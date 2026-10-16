@@ -57,7 +57,7 @@ void SetRottScreenRes(int Width, int Height)
 		dGLOBAL_FPFOCALWIDTH = 180.0;
 		iGLOBAL_HEALTH_X = 40;	// 20*2;
 		iGLOBAL_HEALTH_Y = 466; //(185*2)+16;
-		iGLOBAL_AMMO_X = 600;	// 300*2;
+		iGLOBAL_AMMO_X = iGLOBAL_SCREENWIDTH - 40; // 300*2 at 640
 		iGLOBAL_AMMO_Y = 464;	// 480-16;
 
 		YZANGLELIMIT = (60 * FINEANGLES / 360);
