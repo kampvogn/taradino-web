@@ -56,7 +56,60 @@ static int transittimes[MAXPLAYERS];
 void SyncTime(int client);
 void SetTransitTime(int client, int time);
 
-#ifndef _WIN32
+#if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+
+/*
+ * Browser netplay: the web page joins a WebSocket relay room and decides the
+ * roles before the game starts (Module.rottnet). Like the original ROTTIPX
+ * driver, packets go to "nodes": for a client, node 0 is itself and node 1
+ * the server; for the server, node 0 is itself, node 1 player 1 (itself when
+ * it plays too) and node 2.. the other players. Module.rottnet.nodes maps
+ * node numbers to relay ids; a packet to ourselves comes back as node 0.
+ */
+EM_JS(int, web_rott_role, (int what), {
+	const n = Module.rottnet;
+	if (!n) return -1;
+	return what === 0 ? (n.isServer ? 0 : 1) : what === 1 ? n.consoleplayer : n.numplayers;
+});
+
+EM_JS(void, web_rott_send, (int node, const char *data, int len), {
+	const n = Module.rottnet;
+	if (!n) return;
+	n.send(node, HEAPU8.slice(data, data + len));
+});
+
+EM_JS(int, web_rott_recv, (char *data, int max, int *node), {
+	const n = Module.rottnet;
+	if (!n || !n.inbox.length) return 0;
+	const p = n.inbox.shift();
+	const len = Math.min(p.data.length, max);
+	HEAPU8.set(p.data.subarray(0, len), data);
+	HEAP32[node >> 2] = p.node;
+	return len;
+});
+
+static void ReadUDPPacket()
+{
+	int node = -1;
+	int len = web_rott_recv(rottcom->data, MAXPACKETSIZE, &node);
+	if (len > 0)
+	{
+		rottcom->datalength = len;
+		rottcom->remotenode = node;
+	}
+	else
+	{
+		rottcom->remotenode = -1;
+	}
+}
+
+static void WriteUDPPacket()
+{
+	web_rott_send(rottcom->remotenode, rottcom->data, rottcom->datalength);
+}
+
+#elif !defined(_WIN32)
 
 static void ReadUDPPacket()
 {
@@ -111,6 +164,17 @@ void InitROTTNET(void)
 	rottcom->gametype = 1;
 	rottcom->remotenode = -1;
 
+#if defined(__EMSCRIPTEN__)
+	if (web_rott_role(0) >= 0)
+	{
+		// roles come from the page's lobby (see web_rott_role)
+		rottcom->client = web_rott_role(0);
+		rottcom->consoleplayer = web_rott_role(1);
+		rottcom->numplayers = web_rott_role(2);
+		rottcom->remoteridicule = 0;
+	}
+	else
+#endif
 	if (CheckParm("server"))
 	{
 		if (CheckParm("standalone"))

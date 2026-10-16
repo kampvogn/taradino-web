@@ -538,10 +538,20 @@ void StartupClientControls(void)
 //****************************************************************************
 
 static boolean InUCC = false;
+#ifdef __EMSCRIPTEN__
+void Web_Yield(void);
+#endif
+
 void UpdateClientControls(void)
 {
 	int time;
 	//   int delta;
+
+#ifdef __EMSCRIPTEN__
+	/* the game waits for packets in busy loops around this call; the
+	   relay's messages only arrive when the browser gets a turn */
+	Web_Yield();
+#endif
 
 	if (controlupdatestarted == 0)
 		return;
