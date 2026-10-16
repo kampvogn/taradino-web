@@ -271,7 +271,11 @@ void SetSoundDefaultValues(void)
 	//
 	//  no config file, so select default values
 	//
+#if defined(__EMSCRIPTEN__) && defined(HAVE_ADLMIDI)
+	MusicMode = 2; // OPL3 via libADLMIDI (the browser's SDL2_mixer has no MIDI)
+#else
 	MusicMode = 1; // SDL2_Mixer
+#endif
 	FXMode = 1;
 	NumVoices = 8;
 	NumChannels = 2;

@@ -93,17 +93,24 @@ static union {
 
 void GraphicsMode(void)
 {
+#ifdef __EMSCRIPTEN__
+	// Fixed-size canvas; the web page scales it to a 4:3 box
+	uint32_t flags = 0;
+#else
 	uint32_t flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
+#endif
 
 	if (SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
 	{
 		Error("Could not initialize SDL\n");
 	}
 
+#ifndef __EMSCRIPTEN__ // the page has its own fullscreen button
 	if (sdl_fullscreen)
 	{
 		flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 	}
+#endif
 
 	screen =
 		SDL_CreateWindow(NULL, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,

@@ -538,8 +538,30 @@ static void sdl_handle_events(void)
 // IN_PumpEvents () - Let platform process an event queue.
 //
 //******************************************************************************
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+/*
+ * Give the browser a turn (rendering, audio callbacks, input) if the game has
+ * not slept for a while: several loops poll input until the music or a timer
+ * says stop, without ever sleeping.
+ */
+void Web_Yield(void)
+{
+	static double last = 0;
+	double now = emscripten_get_now();
+	if (now - last >= 15)
+	{
+		emscripten_sleep(0);
+		last = emscripten_get_now();
+	}
+}
+#endif
+
 void IN_PumpEvents(void)
 {
+#ifdef __EMSCRIPTEN__
+	Web_Yield();
+#endif
 	sdl_handle_events();
 }
 
