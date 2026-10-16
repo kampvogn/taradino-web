@@ -1497,6 +1497,86 @@ void ControlPanel(byte scancode)
 // CP_MainMenu
 //
 //******************************************************************************
+//******************************************************************************
+//
+// Web_AutoBattle () - browser netplay: the web page's lobby has already chosen
+// the codename, character and colour (and, for the master, the battle mode,
+// teams and level), so skip the COMM-BAT menus the first time round.
+//
+//******************************************************************************
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+
+EM_JS(int, web_rott_auto, (const char *key, char *str, int max), {
+	const a = Module.rottnet && Module.rottnet.auto;
+	const v = a ? a[UTF8ToString(key)] : undefined;
+	if (v === undefined || v === null) return -1;
+	if (str) { stringToUTF8(String(v), str, max); return 0; }
+	return v | 0;
+});
+
+static boolean Web_AutoBattle(void)
+{
+	static boolean done = false;
+	char name[10];
+	int v;
+
+	if (done || !modemgame || web_rott_auto("color", NULL, 0) < 0)
+		return false;
+	done = true;
+
+	if (consoleplayer == 0)
+	{
+		v = web_rott_auto("mode", NULL, 0);
+		if (v < 0 || v >= battle_NumBattleModes - battle_Normal)
+			v = 0;
+		gamestate.battlemode = battle_Normal + v;
+#if (SHAREWARE == 1)
+		// the rest are greyed out in the shareware menu
+		if (gamestate.battlemode != battle_Collector &&
+			gamestate.battlemode != battle_Hunter)
+			gamestate.battlemode = battle_Normal;
+#endif
+		gamestate.teamplay = web_rott_auto("teams", NULL, 0) > 0;
+		if (gamestate.battlemode == battle_Tag || numplayers < 2)
+			gamestate.teamplay = false;
+		if (gamestate.battlemode == battle_CaptureTheTriad)
+			gamestate.teamplay = true;
+		v = web_rott_auto("level", NULL, 0);
+		gamestate.mapon = v < 0 ? 0 : v;
+	}
+	damagecount = 0;
+	BATTLEMODE = true;
+
+	memset(name, 0, sizeof(name));
+	if (web_rott_auto("name", name, 9) == 0 && name[0])
+	{
+		strcpy(&locplayerstate->codename[0], name);
+		strcpy(CodeName, name);
+	}
+#if (SHAREWARE == 1)
+	v = 0;
+#else
+	v = web_rott_auto("player", NULL, 0);
+	if (v < 0 || v > 4)
+		v = 0;
+#endif
+	DefaultPlayerCharacter = v;
+	locplayerstate->player = v;
+	v = web_rott_auto("color", NULL, 0);
+	DefaultPlayerColor = v % 11;
+	locplayerstate->uniformcolor = v % 11;
+
+	// as at the end of BattleGamePlayerSetup ()
+	StartGame = true;
+	DisableScreenStretch();
+	handlewhich = -2;
+	playstate = ex_resetgame;
+	CP_ModemGameMessage(consoleplayer);
+	return true;
+}
+#endif
+
 menuitems CP_MainMenu(void)
 
 {
@@ -1515,6 +1595,10 @@ menuitems CP_MainMenu(void)
 	//
 	StartGame = false;
 	EnableScreenStretch();
+
+#ifdef __EMSCRIPTEN__
+	Web_AutoBattle();
+#endif
 
 	while (!StartGame)
 	{
