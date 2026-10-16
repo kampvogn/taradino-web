@@ -1,6 +1,6 @@
 # Rise of the Triad in the browser
 
-This branch (`web`) of [taradino](https://github.com/fabiangreffrath/taradino) builds the game to
+This branch (`browser`) of [taradino](https://github.com/fabiangreffrath/taradino) builds the game to
 WebAssembly with Emscripten and adds network play in the browser. It runs at
 <https://kampvogn.dk/rott/>.
 
@@ -13,7 +13,9 @@ WebAssembly with Emscripten and adds network play in the browser. It runs at
 
 ## Changes to taradino
 
-The changes are the commits on this branch on top of upstream `main`:
+The changes are the commits on this branch on top of upstream `main` (upstream's own `web` branch is an
+earlier, separate Emscripten port that rewrites the main loop; this one keeps the game's loops and
+uses Asyncify instead):
 
 1. **Build to WebAssembly:** Emscripten's SDL2/SDL2_mixer ports in CMake; music defaults to OPL3 via
    libADLMIDI (SDL_mixer has no MIDI here); `IN_PumpEvents` yields to the browser every 15 ms, since
