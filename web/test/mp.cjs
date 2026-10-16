@@ -1,12 +1,13 @@
 // Two or three players (PLAYERS=2/3): ACTIONS like page.cjs, each prefixed "A:", "B:", "C:" or "both:" (= everyone);
-// all:wait:ms waits once. Extra steps: hold:Key,ms  stack (print call stacks of that page)
+// all:wait:ms waits once. VIEWS=1280x720,1024x768 sets each player's window. Extra steps: hold:Key,ms  stack (print call stacks of that page)
 const pw = require('/pw/node_modules/playwright-core');
 (async () => {
   const browser = await pw.chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const pages = {};
   const names = ['A', 'B', 'C'].slice(0, +(process.env.PLAYERS || 2));
   for (const n of names) {
-    const ctx = await browser.newContext({ viewport: { width: 1024, height: 768 } });
+    const [vw, vh] = ((process.env.VIEWS || '').split(',')[names.indexOf(n)] || '1024x768').split('x').map(Number);
+    const ctx = await browser.newContext({ viewport: { width: vw, height: vh } });
     const page = await ctx.newPage();
     page.on('pageerror', (e) => console.log(n, 'pageerror', e.message));
     page.on('console', (m) => { if (process.env.VERBOSE || /error|DBG/i.test(m.text())) console.log(n, m.type(), m.text().slice(0, 200)); });

@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="robots" content="noindex, nofollow">
+<title>Rise of the Triad</title>
+<style>
+	:root { color-scheme: dark; }
+	html, body { margin: 0; height: 100%; background: #000; color: #cb9; overflow: hidden; }
+	body { font: 14px/1.5 ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace; }
+	canvas { display: block; position: fixed; image-rendering: pixelated; outline: none; }
+	.overlay {
+		position: fixed; inset: 0; display: flex; flex-direction: column;
+		align-items: center; justify-content: center; gap: 1.1em; text-align: center; padding: 16px;
+	}
+	.overlay[hidden] { display: none; }
+	#start { background: #000; }
+	#start h1 { margin: 0; font-size: clamp(26px, 6vw, 52px); letter-spacing: .1em; color: #fa3; font-weight: 700; }
+	#start h2 { margin: -.6em 0 0; font-size: 14px; color: #a86; font-weight: 400; letter-spacing: .2em; }
+	#go, #own, .btn, #forget { background: none; border: 1px solid #864; padding: .6em 1.6em; color: #fda; font: inherit; cursor: pointer; }
+	#own, .btn, #forget { padding: .35em 1em; font-size: 13px; }
+	#forget { border-color: #543; color: #a87; }
+	.own, #pick { display: flex; flex-direction: column; align-items: center; gap: .6em; }
+	#pick[hidden], #forget[hidden] { display: none; }
+	.pickrow { display: flex; gap: .8em; }
+	#drop { border: 1px dashed #654; padding: .8em 2.5em; color: #876; font-size: 12px; }
+	.mp, #mppanel { display: flex; flex-direction: column; align-items: center; gap: .55em; }
+	#mppanel[hidden] { display: none; }
+	#mpopen, #mpinvite, #mpstart { background: none; border: 1px solid #864; color: #fda; font: inherit; font-size: 13px; padding: .35em 1em; cursor: pointer; }
+	#mpstart:disabled { opacity: .4; cursor: default; }
+	#mpname, #mppanel select { background: #100; color: #fea; border: 1px solid #864; font: inherit; padding: .2em .4em; width: 9em; }
+	#mppanel select { width: auto; max-width: 14em; }
+	.mprow { display: flex; flex-wrap: wrap; justify-content: center; gap: .4em 1em; }
+	#mphost { border: 1px solid #532; padding: .4em .8em; display: flex; flex-direction: column; align-items: center; gap: .4em; }
+	#mplist div { color: #cb9; }
+	#mproom { color: #fda; font-weight: normal; }
+	#drop.over { border-color: #fa3; color: #fda; }
+	.keys { display: grid; grid-template-columns: auto auto; gap: .1em 1.2em; font-size: 12px; color: #a98; text-align: left; }
+	.keys b { color: #dca; font-weight: normal; }
+	.small { max-width: 38em; font-size: 12px; color: #876; }
+	#status { pointer-events: none; color: #cb9; }
+	#bar { width: min(420px, 80vw); height: 6px; border: 1px solid #864; }
+	#bar > div { height: 100%; width: 0; background: #fa3; }
+	#fs {
+		position: fixed; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right));
+		background: rgba(0, 0, 0, .55); color: #cb9; border: 1px solid #654; border-radius: 4px;
+		font: 12px/1 ui-monospace, Menlo, Consolas, monospace; padding: 8px 10px; cursor: pointer;
+		transition: opacity .6s; z-index: 2;
+	}
+	#fs[hidden] { display: none; }
+	#fs.idle { opacity: 0; }
+	#fs:hover { opacity: 1; }
+	a { color: #cb9; }
+</style>
+</head>
+<body>
+<canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+
+<div id="start" class="overlay">
+	<h1>RISE OF THE TRIAD</h1>
+	<h2>THE HUNT BEGINS</h2>
+	<button id="go" type="button">▶ Play the shareware episode</button>
+	<label class="small"><input type="checkbox" id="classic"> Classic 4:3 screen (otherwise as wide as your window)</label>
+	<div class="own">
+		<button id="own" type="button">Use your own files (full version)</button>
+		<span id="ownmsg" class="small"></span>
+		<div id="pick" hidden>
+			<span class="small">Choose your Rise of the Triad files (from the CD, GOG or Steam): DARKWAR.WAD, DARKWAR.RTL,
+			DARKWAR.RTC, REMOTE1.RTS (ROTTCD.RTC if you have it) — or a folder or a .zip with them.
+			They stay in this browser; nothing is uploaded.</span>
+			<div class="pickrow">
+				<label class="btn">Choose files<input id="files" type="file" multiple hidden></label>
+				<label class="btn">Choose folder<input id="folder" type="file" webkitdirectory hidden></label>
+			</div>
+			<div id="drop">…or drop them here</div>
+		</div>
+		<button id="forget" type="button" hidden>Forget my files</button>
+	</div>
+	<div class="mp">
+		<button id="mpopen" type="button">Multiplayer (COMM-BAT)</button>
+		<div id="mppanel" hidden>
+			<div class="mprow">
+				<label>Your name <input id="mpname" maxlength="8" spellcheck="false" autocomplete="off"></label>
+				<label>Colour <select id="mpcolor"></select></label>
+				<label id="mpcharl" hidden>Character <select id="mpchar"></select></label>
+			</div>
+			<div id="mphost">
+				<span class="small">If you start the game:</span>
+				<div class="mprow">
+					<label>Game <select id="mpmode"></select></label>
+					<label><input type="checkbox" id="mpteams"> Teams</label>
+				</div>
+				<label>Level <select id="mplevel"></select></label>
+			</div>
+			<span>Room: <b id="mproom"></b> <button id="mpinvite" type="button">Invite friends</button></span>
+			<span class="small" id="mpmsg">Everyone opens the same invite link and clicks Multiplayer; then one of you starts.</span>
+			<div id="mplist" class="small"></div>
+			<button id="mpstart" type="button" disabled>Start network game</button>
+		</div>
+	</div>
+	<div class="keys">
+		<b>Arrows</b><span>move / turn</span>
+		<b>Ctrl</b><span>fire</span>
+		<b>Alt + arrows</b><span>strafe</span>
+		<b>Shift</b><span>run</span>
+		<b>Space</b><span>open / use</span>
+		<b>1–4</b><span>weapons</span>
+		<b>Mouse</b><span>click the game to aim with the mouse (Esc releases it)</span>
+		<b>Esc</b><span>menu (save / load)</span>
+	</div>
+	<span class="small">
+		Rise of the Triad: The HUNT Begins — the shareware episode by Apogee Software (1995), downloaded unchanged
+		(1rott13.zip, 3.6 MB); the full game (Dark War) works with your own files. Running in the browser via the GPL source port
+		<a href="https://github.com/fabiangreffrath/taradino" target="_blank" rel="noopener">Taradino</a>, Emscripten
+		and libADLMIDI for the AdLib music (<a href="https://github.com/kampvogn/taradino-web" target="_blank" rel="noopener">source</a>).
+		Saved games stay in this browser.
+	</span>
+</div>
+<div id="status" class="overlay" hidden><span id="msg"></span><div id="bar"><div></div></div></div>
+<button id="fs" type="button" hidden>⛶ Fullscreen</button>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const ZIP = 'data/1rott13.zip';
+const ZIP_SIZE = 3668139;
+const WANT = ['HUNTBGIN.WAD', 'HUNTBGIN.RTL', 'HUNTBGIN.RTC', 'REMOTE1.RTS'];
+const CACHE_VERSION = 1;
+
+// Zip entries by scanning local file headers (sizes are in the headers here)
+function zipEntries(d) {
+	const v = new DataView(d.buffer, d.byteOffset, d.byteLength), out = {};
+	let i = 0;
+	while ((i = indexOf(d, [0x50, 0x4b, 0x03, 0x04], i)) >= 0) {
+		const method = v.getUint16(i + 8, true), csize = v.getUint32(i + 18, true);
+		const nameLen = v.getUint16(i + 26, true), extraLen = v.getUint16(i + 28, true);
+		const name = new TextDecoder('latin1').decode(d.subarray(i + 30, i + 30 + nameLen)).toUpperCase();
+		const start = i + 30 + nameLen + extraLen;
+		out[name] = { method, data: d.subarray(start, start + csize) };
+		i = start + csize;
+	}
+	return out;
+}
+function indexOf(d, sig, from) {
+	outer: for (let i = from; i <= d.length - sig.length; i++) {
+		for (let j = 0; j < sig.length; j++) if (d[i + j] !== sig[j]) continue outer;
+		return i;
+	}
+	return -1;
+}
+async function unpack(entry) {
+	if (entry.method === 0) return entry.data;
+	const s = new Blob([entry.data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+	return new Uint8Array(await new Response(s).arrayBuffer());
+}
+
+// Apogee's shareware package as downloaded; the game files are pulled out of
+// ROTTSW13.SHR (a self-extracting zip inside the zip) and kept in Cache Storage
+async function gameFiles(progress) {
+	let cache = null;
+	try {
+		cache = await caches.open('rott-data');
+		const hits = await Promise.all(WANT.map((f) => cache.match('files/' + f + '?v=' + CACHE_VERSION)));
+		if (hits.every(Boolean)) return Promise.all(hits.map(async (h) => new Uint8Array(await h.arrayBuffer())));
+	} catch { cache = null; }
+	const res = await fetch(ZIP);
+	if (!res.ok) throw new Error('Could not fetch the shareware package');
+	const reader = res.body.getReader(), buf = new Uint8Array(ZIP_SIZE);
+	let at = 0;
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		buf.set(value, at); at += value.length; progress(at / ZIP_SIZE);
+	}
+	$('msg').textContent = 'Unpacking…';
+	const shr = await unpack(zipEntries(buf)['ROTTSW13.SHR']);
+	const inner = zipEntries(shr);
+	const files = await Promise.all(WANT.map((f) => unpack(inner[f])));
+	if (cache) {
+		try { await Promise.all(WANT.map((f, i) => cache.put('files/' + f + '?v=' + CACHE_VERSION, new Response(files[i])))); } catch {}
+	}
+	return files;
+}
+
+// Full version: the player's own files, kept in Cache Storage ('rott-user')
+const FULL_REQUIRED = ['DARKWAR.WAD', 'DARKWAR.RTL'];
+const FULL_OPTIONAL = ['DARKWAR.RTC', 'REMOTE1.RTS', 'ROTTCD.RTC'];
+const FULL_ALL = [...FULL_REQUIRED, ...FULL_OPTIONAL];
+
+// A .zip from the player: read the central directory (local headers may lack sizes)
+async function zipFiles(d) {
+	const v = new DataView(d.buffer, d.byteOffset, d.byteLength), out = {};
+	let eocd = -1;
+	for (let i = d.length - 22; i >= Math.max(0, d.length - 65557); i--) if (v.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+	if (eocd < 0) return out;
+	let p = v.getUint32(eocd + 16, true);
+	const count = v.getUint16(eocd + 10, true);
+	for (let n = 0; n < count && v.getUint32(p, true) === 0x02014b50; n++) {
+		const method = v.getUint16(p + 10, true), csize = v.getUint32(p + 20, true);
+		const nameLen = v.getUint16(p + 28, true), extraLen = v.getUint16(p + 30, true), commentLen = v.getUint16(p + 32, true);
+		const local = v.getUint32(p + 42, true);
+		const name = new TextDecoder('latin1').decode(d.subarray(p + 46, p + 46 + nameLen)).split('/').pop().toUpperCase();
+		if (FULL_ALL.includes(name)) {
+			const start = local + 30 + v.getUint16(local + 26, true) + v.getUint16(local + 28, true);
+			out[name] = await unpack({ method, data: d.subarray(start, start + csize) });
+		}
+		p += 46 + nameLen + extraLen + commentLen;
+	}
+	return out;
+}
+
+async function importOwn(fileList) {
+	const found = {};
+	for (const f of fileList) {
+		const name = f.name.toUpperCase();
+		if (FULL_ALL.includes(name)) found[name] = new Uint8Array(await f.arrayBuffer());
+		else if (name.endsWith('.ZIP')) Object.assign(found, await zipFiles(new Uint8Array(await f.arrayBuffer())));
+	}
+	const missing = FULL_REQUIRED.filter((n) => !found[n]);
+	if (missing.length) { $('ownmsg').textContent = 'Missing: ' + missing.join(', '); return; }
+	try {
+		const cache = await caches.open('rott-user');
+		for (const k of await cache.keys()) await cache.delete(k);
+		await Promise.all(Object.entries(found).map(([n, b]) => cache.put('user/' + n, new Response(b))));
+	} catch { /* no storage: play once */ }
+	launch('full', found);
+}
+
+async function ownFiles() {
+	try {
+		const cache = await caches.open('rott-user'), out = {};
+		for (const n of FULL_ALL) { const r = await cache.match('user/' + n); if (r) out[n] = new Uint8Array(await r.arrayBuffer()); }
+		return FULL_REQUIRED.every((n) => out[n]) ? out : null;
+	} catch { return null; }
+}
+
+// ---- Multiplayer: a WebSocket relay room (the same relay as Red Alert). Each
+// message is [channel][data]: 0 = lobby (JSON), 1 = game packet. The player
+// who presses Start becomes the ROTT server; the others become clients.
+const RELAY = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/redalert/net';
+const roomOf = () => ((location.hash.match(/room=([a-z0-9-]{1,32})/i) || [])[1] || 'lobby').toLowerCase();
+const mp = { ws: null, id: 0, members: new Map(), game: null };
+const enc = new TextEncoder(), dec = new TextDecoder();
+function mpSend(dest, channel, data) {
+	if (!mp.ws || mp.ws.readyState !== 1) return;
+	const out = new Uint8Array(5 + data.length);
+	new DataView(out.buffer).setUint32(0, dest >>> 0);
+	out[4] = channel;
+	out.set(data, 5);
+	mp.ws.send(out);
+}
+const lobbySend = (msg) => mpSend(0xFFFFFFFF, 0, enc.encode(JSON.stringify(msg)));
+function myModes() { return ownFilesKnown ? ['shareware', 'full'] : ['shareware']; }
+let ownFilesKnown = false;
+function mpConnect() {
+	const url = (new URLSearchParams(location.search).get('net') || RELAY) + '?room=rott-' + roomOf();
+	const ws = new WebSocket(url);
+	ws.binaryType = 'arraybuffer';
+	mp.ws = ws;
+	ws.onmessage = (e) => {
+		if (typeof e.data === 'string') { const m = JSON.parse(e.data); if (m.type === 'hello') mp.id = m.id; return; }
+		const d = new Uint8Array(e.data);
+		if (d.length < 6) return;
+		const src = new DataView(e.data).getUint32(0), channel = d[4], data = d.subarray(5);
+		if (channel === 1 && mp.game) mp.game.receive(src, data);
+		else if (channel === 0) lobbyMessage(src, JSON.parse(dec.decode(data)));
+	};
+	ws.onclose = () => { mp.id = 0; if (!mp.game) setTimeout(mpConnect, 3000); $('mpmsg').textContent = 'Connection lost — reconnecting…'; };
+}
+function lobbyMessage(src, m) {
+	if (m.t === 'here') { mp.members.set(src, { name: String(m.name).slice(0, 12), modes: m.modes, last: Date.now() }); drawLobby(); }
+	else if (m.t === 'start' && m.players.includes(mp.id) && !mp.game) {
+		const mode = m.mode;
+		if (mode === 'full' && !ownFilesKnown) { $('mpmsg').textContent = 'The host started the full version, but your own files are missing.'; return; }
+		const k = m.players.indexOf(mp.id);
+		joinGame({ isServer: false, consoleplayer: k + 1, numplayers: m.players.length, nodes: [mp.id, m.players[0]],
+			auto: autoChoices(k, mode, { teams: m.teams ? 1 : 0 }) }, mode);
+	}
+}
+function drawLobby() {
+	const now = Date.now();
+	for (const [id, v] of mp.members) if (now - v.last > 4000) mp.members.delete(id);
+	const list = $('mplist');
+	list.innerHTML = '';
+	const me = document.createElement('div'); me.textContent = '• ' + ($('mpname').value || 'You') + ' (you)'; list.appendChild(me);
+	for (const v of mp.members.values()) { const d = document.createElement('div'); d.textContent = '• ' + v.name; list.appendChild(d); }
+	const n = mp.members.size + 1;
+	drawLevels(lobbyMode());
+	$('mpstart').disabled = n < 2;
+	$('mpstart').textContent = n < 2 ? 'Waiting for players…' : 'Start network game (' + n + ' players)';
+}
+function joinGame(cfg, mode) {
+	const me = mp.id;
+	const net = { ...cfg, inbox: [] };
+	net.send = (node, data) => {
+		const dest = net.nodes[node];
+		if (dest === undefined) return;
+		if (dest === me) net.inbox.push({ node: 0, data });     // to ourselves: back as node 0
+		else mpSend(dest, 1, data);
+	};
+	net.receive = (src, data) => {
+		const node = net.nodes.indexOf(src);
+		if (node >= 0 && net.inbox.length < 8000) net.inbox.push({ node, data: data.slice() });
+	};
+	mp.game = net;
+	ownFiles().then((own) => launch(mode, mode === 'full' ? own : null, net));
+}
+// The game's own COMM-BAT choices, made here instead of in its menus
+// (Module.rottnet.auto, read by Web_AutoBattle in rt_menu.c)
+const MODES = ['Normal', 'Score More', 'Collector', 'Scavenger', 'Hunter', 'Tag', 'Eluder', 'Deluder', 'Capture the Triad'];
+const COLORS = ['Gray', 'Brown', 'Black', 'Tan', 'Red', 'Olive', 'Blue', 'White', 'Green', 'Purple', 'Orange'];
+const CHARACTERS = ['Taradino Cassatt', 'Thi Barrett', 'Doug Wendt', 'Lorelei Ni', 'Ian Paul Freeley'];
+const SHAREWARE_LEVELS = ['The Corpseyard', 'Falling For It', 'Fun House', 'The Labyrinth', 'Dark Warrens', 'Hill and Hill Again', 'Iron Tower', 'The Great Divide'];
+let fullLevels = null;
+// Battle level names from an RTC file: "RTC\0", version, then 100 map headers of 64 bytes (name at +40)
+function rtcLevels(d) {
+	if (!d || d.length < 8 + 6400) return null;
+	const v = new DataView(d.buffer, d.byteOffset, d.byteLength), names = [];
+	for (let i = 0; i < 100; i++) {
+		const at = 8 + i * 64;
+		if (!v.getUint32(at, true)) continue;
+		let end = at + 40; while (end < at + 64 && d[end]) end++;
+		names.push(String.fromCharCode(...d.subarray(at + 40, end)));
+	}
+	return names.length ? names : null;
+}
+const fillSelect = (sel, items, first) => { sel.innerHTML = ''; items.forEach((t, i) => sel.add(new Option(t, first !== undefined ? i + first : i))); };
+const prefs = (() => { try { return JSON.parse(localStorage.getItem('rott-mp') || '{}'); } catch { return {}; } })();
+fillSelect($('mpcolor'), ['Auto', ...COLORS], -1);
+fillSelect($('mpchar'), CHARACTERS);
+for (const k of ['mpcolor', 'mpchar']) if (prefs[k] !== undefined) $(k).value = prefs[k];
+$('mpteams').checked = !!prefs.mpteams;
+function savePrefs() {
+	const p = { mpteams: $('mpteams').checked };
+	for (const k of ['mpcolor', 'mpchar', 'mpmode', 'mplevel']) p[k] = $(k).value;
+	try { localStorage.setItem('rott-mp', JSON.stringify(p)); } catch {}
+}
+function syncModeRules() {
+	// Tag has no teams; Capture the Triad is teams only
+	const m = +$('mpmode').value;
+	if (m === 5) $('mpteams').checked = false;
+	if (m === 8) $('mpteams').checked = true;
+	$('mpteams').disabled = m === 5 || m === 8;
+}
+// The shareware episode only has Normal, Collector and Hunter
+const SHAREWARE_MODES = [0, 2, 4];
+let shownModes = null;
+function drawModes(mode) {
+	const list = mode === 'full' ? MODES.map((_, i) => i) : SHAREWARE_MODES;
+	if (list === shownModes) return;
+	const keep = shownModes ? $('mpmode').value : prefs.mpmode;
+	shownModes = list;
+	$('mpmode').innerHTML = '';
+	for (const i of list) $('mpmode').add(new Option(MODES[i], i));
+	if (keep !== undefined && list.includes(+keep)) $('mpmode').value = keep;
+	syncModeRules();
+}
+let shownLevels = null;
+function drawLevels(mode) {
+	drawModes(mode);
+	const list = mode === 'full' && fullLevels ? fullLevels : SHAREWARE_LEVELS;
+	if (list === shownLevels) return;
+	const keep = shownLevels ? $('mplevel').value : prefs.mplevel;
+	shownLevels = list;
+	fillSelect($('mplevel'), list);
+	if (keep !== undefined && +keep < list.length) $('mplevel').value = keep;
+}
+for (const k of ['mpcolor', 'mpchar', 'mpmode', 'mpteams', 'mplevel']) $(k).addEventListener('change', () => { syncModeRules(); savePrefs(); });
+drawLevels('shareware');
+// The game is the full version only if everyone has their own files
+const lobbyMode = () => ownFilesKnown && [...mp.members.values()].every((v) => (v.modes || []).includes('full')) ? 'full' : 'shareware';
+function autoChoices(k, mode, host) {
+	let color = +$('mpcolor').value;
+	if (color < 0) color = host.teams ? (k % 2 ? 6 : 4) : k % COLORS.length;   // auto: teams red/blue, else one each
+	const name = ($('mpname').value || 'Player').replace(/[^A-Za-z0-9 -]/g, '').slice(0, 8) || 'Player';
+	return { name, color, player: mode === 'full' ? +$('mpchar').value : 0, ...host };
+}
+const hostChoices = () => ({ mode: +$('mpmode').value, teams: $('mpteams').checked ? 1 : 0, level: +$('mplevel').value });
+
+$('mpopen').addEventListener('click', async () => {
+	$('mppanel').hidden = false; $('mpopen').hidden = true;
+	const own = await ownFiles();
+	ownFilesKnown = !!own;
+	if (own) fullLevels = rtcLevels(own['ROTTCD.RTC']) || rtcLevels(own['DARKWAR.RTC']);
+	$('mpcharl').hidden = !ownFilesKnown;
+	drawLevels(lobbyMode());
+	$('mproom').textContent = roomOf();
+	if (!mp.ws) mpConnect();
+	setInterval(() => { lobbySend({ t: 'here', name: $('mpname').value || 'Player', modes: myModes() }); drawLobby(); }, 1000);
+	drawLobby();
+});
+try { $('mpname').value = (localStorage.getItem('rott-name') || '').slice(0, 8); } catch {}
+if (!$('mpname').value) $('mpname').value = 'Player' + Math.floor(10 + Math.random() * 90);
+$('mpname').addEventListener('input', () => { try { localStorage.setItem('rott-name', $('mpname').value); } catch {} });
+$('mproom').textContent = roomOf();
+$('mpinvite').addEventListener('click', async () => {
+	if (roomOf() === 'lobby') {
+		location.hash = 'room=' + Math.random().toString(36).slice(2, 8);
+		if (mp.ws) { mp.members.clear(); mp.ws.onclose = null; mp.ws.close(); mpConnect(); }
+	}
+	$('mproom').textContent = roomOf();
+	const link = location.origin + location.pathname + '#room=' + roomOf();
+	let copied = false;
+	try { await navigator.clipboard.writeText(link); copied = true; } catch {}
+	$('mpmsg').textContent = (copied ? 'Link copied: ' : 'Share this link: ') + link;
+});
+$('mpstart').addEventListener('click', () => {
+	const others = [...mp.members.entries()];
+	// The full version only if everyone has their own files
+	const mode = lobbyMode();
+	const host = hostChoices();
+	const max = mode === 'full' ? 11 : 5;
+	const players = [mp.id, ...others.map(([id]) => id).sort((a, b) => a - b)].slice(0, max);
+	lobbySend({ t: 'start', players, mode, teams: host.teams });
+	joinGame({ isServer: true, consoleplayer: 1, numplayers: players.length, nodes: [mp.id, mp.id, ...players.slice(1)],
+		auto: autoChoices(0, mode, host) }, mode);
+});
+
+// The game's width at 480 high: the window's shape when the game starts, 640 (the original
+// 4:3) to 1024 (about 2.1:1), or 640 with "Classic 4:3". ?w=864 forces a width (tests).
+let SCREEN_W = 640;
+function screenWidth() {
+	const forced = +new URLSearchParams(location.search).get('w');
+	if (forced >= 640 && forced <= 1024 && forced % 16 === 0) return forced;
+	if ($('classic').checked) return 640;
+	return Math.min(1024, Math.max(640, Math.round(480 * innerWidth / innerHeight / 16) * 16));
+}
+try { $('classic').checked = localStorage.getItem('rott-classic') === '1'; } catch {}
+$('classic').addEventListener('change', () => { try { localStorage.setItem('rott-classic', $('classic').checked ? '1' : '0'); } catch {} });
+
+// Largest box with the game's aspect that fits the window, centred (the game draws 640x480)
+function fit() {
+	const c = $('canvas'), ar = SCREEN_W / 480;
+	const w = Math.min(innerWidth, innerHeight * ar), h = w / ar;
+	Object.assign(c.style, { width: w + 'px', height: h + 'px', left: (innerWidth - w) / 2 + 'px', top: (innerHeight - h) / 2 + 'px' });
+}
+
+function fullscreenButton() {
+	const btn = $('fs'), el = document.documentElement;
+	if (!(document.fullscreenEnabled || document.webkitFullscreenEnabled)) return;
+	const on = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+	const sync = () => { btn.textContent = on() ? '✕ Exit fullscreen' : '⛶ Fullscreen'; };
+	let timer = 0;
+	const wake = () => { btn.classList.remove('idle'); clearTimeout(timer); timer = setTimeout(() => btn.classList.add('idle'), 2500); };
+	btn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		if (on()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+		else (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+		$('canvas').focus();
+	});
+	document.addEventListener('fullscreenchange', sync);
+	document.addEventListener('webkitfullscreenchange', sync);
+	addEventListener('pointermove', wake);
+	sync(); btn.hidden = false; wake();
+}
+
+const lastLines = [];
+function stopped(mode, text) {
+	$('canvas').style.visibility = 'hidden';
+	$('status').hidden = false;
+	$('bar').hidden = true;
+	$('msg').innerHTML = '';
+	const lines = [text, ...lastLines.slice(-2)];
+	if (mode === 'full') lines.push('Your files may be from a version this port does not support (v1.3 / GOG / Steam work best). Reload and use "Forget my files" to choose others.');
+	lines.push('Reload the page to start again.');
+	for (const l of lines) { const d = document.createElement('div'); d.textContent = l; $('msg').appendChild(d); }
+}
+
+// mode 'shareware': Apogee's package from this site; 'full': the player's own
+// files with the registered build (full/)
+async function start(mode = 'shareware', own = null, net = null) {
+	SCREEN_W = screenWidth();
+	$('start').hidden = true;
+	$('status').hidden = false;
+	$('msg').textContent = 'Loading…';
+	const dir = mode === 'full' ? 'full/' : '';
+	const runtime = new Promise((resolve) => {
+		window.Module = {
+			canvas: $('canvas'),
+			locateFile: (p) => dir + p,
+			rottnet: net,
+			print: (t) => { console.log(t); lastLines.push(t); lastLines.splice(0, lastLines.length - 4); },
+			printErr: (t) => { console.warn(t); lastLines.push(t); lastLines.splice(0, lastLines.length - 4); },
+			onRuntimeInitialized: resolve,
+			// The game quit (e.g. a missing or wrong data file): say so instead of a black screen
+			onExit: (code) => stopped(mode, 'The game stopped (code ' + code + ').'),
+			onAbort: (what) => stopped(mode, 'The game crashed: ' + what),
+		};
+		const s = document.createElement('script');
+		s.src = dir + 'taradino.js?v=3';
+		document.body.appendChild(s);
+	});
+	let files;
+	if (mode === 'full') files = own;
+	else {
+		const list = await gameFiles((f) => {
+			$('msg').textContent = 'Loading the shareware episode… ' + Math.round(f * 100) + '%';
+			$('bar').firstElementChild.style.width = (f * 100).toFixed(1) + '%';
+		});
+		files = Object.fromEntries(WANT.map((f, i) => [f, list[i]]));
+	}
+	await runtime;
+	FS.mkdir('/game');
+	for (const [name, data] of Object.entries(files)) FS.writeFile('/game/' + name, data);
+	// Settings and saved games (SDL's pref dir) live in IndexedDB
+	FS.mkdirTree('/libsdl');
+	FS.mount(IDBFS, {}, '/libsdl');
+	await new Promise((r) => FS.syncfs(true, r));
+	let syncing = false;
+	const save = () => { if (syncing) return; syncing = true; FS.syncfs(false, () => { syncing = false; }); };
+	setInterval(save, 5000);
+	addEventListener('pagehide', save);
+	document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+	FS.chdir('/game');
+	$('status').hidden = true;
+	addEventListener('resize', fit);
+	setInterval(fit, 1000);
+	fit();
+	fullscreenButton();
+	$('canvas').focus();
+	window.__started = true;
+	// always explicit: the game would otherwise take the width saved in its config
+	Module.callMain([...(net ? ['-net'] : []), '-resolution', SCREEN_W + 'x480']);
+}
+
+const launch = (mode, own, net) => start(mode, own, net).catch((e) => {
+	console.error(e);
+	$('status').hidden = false;
+	$('msg').textContent = 'Error: ' + e.message;
+});
+$('go').addEventListener('click', () => launch('shareware'));
+
+// Own files: play straight away if they are stored, otherwise show the picker
+(async () => {
+	if (await ownFiles()) {
+		$('own').textContent = '▶ Play the full version (your files)';
+		$('forget').hidden = false;
+	}
+})();
+$('own').addEventListener('click', async () => {
+	const own = await ownFiles();
+	if (own) launch('full', own);
+	else $('pick').hidden = false;
+});
+$('forget').addEventListener('click', async () => {
+	try { await caches.delete('rott-user'); } catch {}
+	$('own').textContent = 'Use your own files (full version)';
+	$('forget').hidden = true;
+	$('ownmsg').textContent = 'Your files were removed from this browser.';
+});
+for (const id of ['files', 'folder']) $(id).addEventListener('change', (e) => importOwn([...e.target.files]).catch((err) => { $('ownmsg').textContent = 'Error: ' + err.message; }));
+const drop = $('drop');
+drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', async (e) => {
+	e.preventDefault(); drop.classList.remove('over');
+	// Folders: walk the dropped entries
+	const files = [];
+	const walk = async (entry) => {
+		if (entry.isFile) files.push(await new Promise((r, j) => entry.file(r, j)));
+		else if (entry.isDirectory) {
+			const reader = entry.createReader();
+			for (;;) { const batch = await new Promise((r, j) => reader.readEntries(r, j)); if (!batch.length) break; for (const b of batch) await walk(b); }
+		}
+	};
+	const items = [...e.dataTransfer.items].map((i) => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+	if (items.length) for (const it of items) await walk(it); else files.push(...e.dataTransfer.files);
+	importOwn(files).catch((err) => { $('ownmsg').textContent = 'Error: ' + err.message; });
+});
+</script>
+</body>
+</html>

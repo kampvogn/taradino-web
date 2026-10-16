@@ -62,6 +62,7 @@
 	<h1>RISE OF THE TRIAD</h1>
 	<h2>THE HUNT BEGINS</h2>
 	<button id="go" type="button">▶ Play the shareware episode</button>
+	<label class="small"><input type="checkbox" id="classic"> Classic 4:3 screen (otherwise as wide as your window)</label>
 	<div class="own">
 		<button id="own" type="button">Use your own files (full version)</button>
 		<span id="ownmsg" class="small"></span>
@@ -416,8 +417,17 @@ $('mpstart').addEventListener('click', () => {
 		auto: autoChoices(0, mode, host) }, mode);
 });
 
-// The game's width at 480 high (640 = the original 4:3); ?w=864 for testing wide screens
-const SCREEN_W = (() => { const w = +new URLSearchParams(location.search).get('w'); return w >= 640 && w <= 1024 && w % 16 === 0 ? w : 640; })();
+// The game's width at 480 high: the window's shape when the game starts, 640 (the original
+// 4:3) to 1024 (about 2.1:1), or 640 with "Classic 4:3". ?w=864 forces a width (tests).
+let SCREEN_W = 640;
+function screenWidth() {
+	const forced = +new URLSearchParams(location.search).get('w');
+	if (forced >= 640 && forced <= 1024 && forced % 16 === 0) return forced;
+	if ($('classic').checked) return 640;
+	return Math.min(1024, Math.max(640, Math.round(480 * innerWidth / innerHeight / 16) * 16));
+}
+try { $('classic').checked = localStorage.getItem('rott-classic') === '1'; } catch {}
+$('classic').addEventListener('change', () => { try { localStorage.setItem('rott-classic', $('classic').checked ? '1' : '0'); } catch {} });
 
 // Largest box with the game's aspect that fits the window, centred (the game draws 640x480)
 function fit() {
@@ -460,6 +470,7 @@ function stopped(mode, text) {
 // mode 'shareware': Apogee's package from this site; 'full': the player's own
 // files with the registered build (full/)
 async function start(mode = 'shareware', own = null, net = null) {
+	SCREEN_W = screenWidth();
 	$('start').hidden = true;
 	$('status').hidden = false;
 	$('msg').textContent = 'Loading…';
@@ -477,7 +488,7 @@ async function start(mode = 'shareware', own = null, net = null) {
 			onAbort: (what) => stopped(mode, 'The game crashed: ' + what),
 		};
 		const s = document.createElement('script');
-		s.src = dir + 'taradino.js?v=3';
+		s.src = dir + 'taradino.js?v=4';
 		document.body.appendChild(s);
 	});
 	let files;
@@ -509,7 +520,8 @@ async function start(mode = 'shareware', own = null, net = null) {
 	fullscreenButton();
 	$('canvas').focus();
 	window.__started = true;
-	Module.callMain([...(net ? ['-net'] : []), ...(SCREEN_W !== 640 ? ['-resolution', SCREEN_W + 'x480'] : [])]);
+	// always explicit: the game would otherwise take the width saved in its config
+	Module.callMain([...(net ? ['-net'] : []), '-resolution', SCREEN_W + 'x480']);
 }
 
 const launch = (mode, own, net) => start(mode, own, net).catch((e) => {

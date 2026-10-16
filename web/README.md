@@ -25,7 +25,14 @@ uses Asyncify instead):
    did: node 0 is yourself; for a client node 1 is the server; for the server node 1 is its own player
    and nodes 2.. the others. `UpdateClientControls` yields to the browser, because the game waits for
    packets in busy loops and WebSocket messages only arrive when the browser gets a turn.
-3. **Lobby choices** (`rt_menu.c`, `Web_AutoBattle`): the page's lobby picks codename, character and
+3. **Wide screens (Hor+):** resolutions from 640x480 up to 1024x480. A full-width view is projected
+   as if it were the original 640-wide one (`ProjectionCenterX` in `rt_view.c`), so the middle of the
+   picture is unchanged and the extra columns show more to the sides; the angle table continues its
+   atan curve past 45 degrees. The status bars reach the edges, and the 320x200 screens (menus,
+   titles) and cinematics stay 4:3 in the middle. 640x480 renders exactly as before. The page picks
+   the width from the window's shape (`Classic 4:3` keeps 640); game logic does not depend on it, so
+   players with different widths can play together.
+4. **Lobby choices** (`rt_menu.c`, `Web_AutoBattle`): the page's lobby picks codename, character and
    colour, and for the host battle mode, teams and level, so the game skips its COMM-BAT menus.
    The shareware version only allows Normal, Collector and Hunter.
 
