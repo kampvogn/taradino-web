@@ -51,7 +51,7 @@ void SetRottScreenRes(int Width, int Height)
 
 		YZANGLELIMIT = (30 * FINEANGLES / 360);
 	}
-	if (iGLOBAL_SCREENWIDTH == 640)
+	if (iGLOBAL_SCREENWIDTH >= 640)
 	{
 		iGLOBAL_FOCALWIDTH = 180;
 		dGLOBAL_FPFOCALWIDTH = 180.0;

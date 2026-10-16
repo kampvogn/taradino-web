@@ -416,9 +416,12 @@ $('mpstart').addEventListener('click', () => {
 		auto: autoChoices(0, mode, host) }, mode);
 });
 
-// Largest 4:3 box that fits the window, centred (the game draws 640x480)
+// The game's width at 480 high (640 = the original 4:3); ?w=864 for testing wide screens
+const SCREEN_W = (() => { const w = +new URLSearchParams(location.search).get('w'); return w >= 640 && w <= 1024 && w % 16 === 0 ? w : 640; })();
+
+// Largest box with the game's aspect that fits the window, centred (the game draws 640x480)
 function fit() {
-	const c = $('canvas'), ar = 4 / 3;
+	const c = $('canvas'), ar = SCREEN_W / 480;
 	const w = Math.min(innerWidth, innerHeight * ar), h = w / ar;
 	Object.assign(c.style, { width: w + 'px', height: h + 'px', left: (innerWidth - w) / 2 + 'px', top: (innerHeight - h) / 2 + 'px' });
 }
@@ -506,7 +509,7 @@ async function start(mode = 'shareware', own = null, net = null) {
 	fullscreenButton();
 	$('canvas').focus();
 	window.__started = true;
-	Module.callMain(net ? ['-net'] : []);
+	Module.callMain([...(net ? ['-net'] : []), ...(SCREEN_W !== 640 ? ['-resolution', SCREEN_W + 'x480'] : [])]);
 }
 
 const launch = (mode, own, net) => start(mode, own, net).catch((e) => {

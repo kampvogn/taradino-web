@@ -17,6 +17,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
+#include <math.h>
 #include "rt_def.h"
 #include "rt_view.h"
 #include "z_zone.h"
@@ -77,7 +78,7 @@ byte *redmap;
 byte *greenmap;
 byte *playermaps[MAXPLAYERCOLORS];
 // short  pixelangle[MAXVIEWWIDTH];
-short pixelangle[800];
+short pixelangle[MAXSCREENWIDTH];
 byte gammatable[GAMMAENTRIES];
 int gammaindex;
 int focalwidth = 160;
@@ -146,18 +147,42 @@ void ChangeFocalWidth(int amount)
 ====================
 */
 
+/*
+====================
+=
+= ProjectionCenterX
+=
+= Wide screens (Hor+): a full-width view is projected as if it were the
+= 640-wide view of the original, so heights and the field of view stay the
+= same in the middle and the extra columns show more to the sides.
+=
+====================
+*/
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+static int ProjectionCenterX(void)
+{
+	if (iGLOBAL_SCREENWIDTH > 640 && viewwidth == iGLOBAL_SCREENWIDTH)
+		return centerx * 640 / iGLOBAL_SCREENWIDTH;
+	return centerx;
+}
+
 void SetViewDelta(void)
 {
+	int projcenterx = ProjectionCenterX();
+
 	//
 	// calculate scale value for vertical height calculations
 	// and sprite x calculations
 	//
-	scale = (centerx * focalwidth) / (160);
+	scale = (projcenterx * focalwidth) / (160);
 	//
 	// divide heightnumerator by a posts distance to get the posts height for
 	// the heightbuffer.  The pixel height is height>>HEIGHTFRACTION
 	//
-	heightnumerator = (((focalwidth / 10) * centerx * 4096) << HEIGHTFRACTION);
+	heightnumerator = (((focalwidth / 10) * projcenterx * 4096) << HEIGHTFRACTION);
 }
 
 /*
@@ -177,6 +202,7 @@ void CalcProjection(void)
 	byte *ptr;
 	int length;
 	int *pangle;
+	int projcenterx;
 
 	// Already being called in ResetFocalWidth
 	//    SetViewDelta();
@@ -200,15 +226,26 @@ void CalcProjection(void)
 	pangle = SafeMalloc(length * sizeof(int));
 	memcpy(pangle, ptr, length * sizeof(int));
 
-	frac = ((length * 65536 / centerx)) >> 1;
+	projcenterx = ProjectionCenterX();
+	frac = ((length * 65536 / projcenterx)) >> 1;
 	for (i = 0; i < centerx; i++)
 	{
 		// start 1/2 pixel over, so viewangle bisects two middle pixels
-		intang = pangle[frac >> 16];
-		SwapIntelLong(&intang);
+		if ((frac >> 16) < length)
+		{
+			intang = pangle[frac >> 16];
+			SwapIntelLong(&intang);
+		}
+		else
+		{
+			// wide screens: past the table's 45 degrees, continue its
+			// curve, atan((index + 1/2) / length)
+			intang = (int)(atan(((frac >> 16) + 0.5) / length) * FINEANGLES /
+						   (2 * M_PI));
+		}
 		pixelangle[centerx - 1 - i] = (short)intang;
 		pixelangle[centerx + i] = (short)-intang;
-		frac += (length * 65536 / centerx);
+		frac += (length * 65536 / projcenterx);
 	}
 	table = W_CacheLumpName("tables", PU_CACHE, CvtNull, 1);
 	SafeFree(pangle);
@@ -239,7 +276,7 @@ void SetViewSize(int size)
 	}
  */
 
-	if (iGLOBAL_SCREENWIDTH == 640)
+	if (iGLOBAL_SCREENWIDTH >= 640)
 	{
 		height = 0; // we use height as dummy cnt
 		viewsizes[height++] = 380;
@@ -264,6 +301,11 @@ void SetViewSize(int size)
 		viewsizes[height++] = 480;
 		viewsizes[height++] = 640;
 		viewsizes[height++] = 480;
+
+		// wide screens: the full-width sizes use the whole width
+		for (height = 0; height < MAXVIEWSIZES * 2; height += 2)
+			if (viewsizes[height] == 640)
+				viewsizes[height] = iGLOBAL_SCREENWIDTH;
 	}
 
 	if ((size < 0) || (size >= MAXVIEWSIZES))

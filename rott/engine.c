@@ -35,7 +35,7 @@ Global Variables GLOBAL VARIABLES
 =============================================================================
 */
 // wallcast_t posts[642];//bna++
-wallcast_t posts[800 + 2]; // bna++
+wallcast_t posts[MAXSCREENWIDTH + 2]; // bna++
 // wallcast_t posts[321];
 int lasttilex;
 int lasttiley;

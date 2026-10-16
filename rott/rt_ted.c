@@ -1089,7 +1089,7 @@ void PreCache(void)
 						PRECACHEBARY + PRECACHELED1Y,
 						W_GetNumForName("led1")); // led1 progressbar
 				}
-				else if (iGLOBAL_SCREENWIDTH == 640)
+				else if (iGLOBAL_SCREENWIDTH >= 640)
 				{
 					DrawNormalSprite(
 						72 + (Gs * (lastmem << 2)), 446,
@@ -1119,7 +1119,7 @@ void PreCache(void)
 						PRECACHEBARY + PRECACHELED2Y,
 						W_GetNumForName("led2")); // led2 progressbar
 				}
-				else if (iGLOBAL_SCREENWIDTH == 640)
+				else if (iGLOBAL_SCREENWIDTH >= 640)
 				{
 					DrawNormalSprite(
 						72 + (Gs * (lastcache << 2)), 458,

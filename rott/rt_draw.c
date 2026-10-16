@@ -2754,7 +2754,7 @@ void StartupRotateBuffer(int masked)
 	{
 		RotatedImage = SafeMalloc(131072);
 	}
-	else if (iGLOBAL_SCREENWIDTH == 640)
+	else if (iGLOBAL_SCREENWIDTH >= 640)
 	{
 		RotatedImage = SafeMalloc(131072 * 4);
 	}
@@ -2766,7 +2766,7 @@ void StartupRotateBuffer(int masked)
 		{
 			memset(RotatedImage, 0, 131072);
 		}
-		else if (iGLOBAL_SCREENWIDTH == 640)
+		else if (iGLOBAL_SCREENWIDTH >= 640)
 		{
 			memset(RotatedImage, 0, 131072 * 4);
 		}
@@ -2777,7 +2777,7 @@ void StartupRotateBuffer(int masked)
 		{
 			memset(RotatedImage, 0xff, 131072);
 		}
-		else if (iGLOBAL_SCREENWIDTH == 640)
+		else if (iGLOBAL_SCREENWIDTH >= 640)
 		{
 			memset(RotatedImage, 0xff, 131072 * 4);
 		}
@@ -2785,7 +2785,7 @@ void StartupRotateBuffer(int masked)
 	// memset(RotatedImage,0xff,131072);//org
 	// memset(RotatedImage,0xff,131072*8);
 
-	if ((masked == false) && (iGLOBAL_SCREENWIDTH == 640))
+	if ((masked == false) && (iGLOBAL_SCREENWIDTH >= 640))
 	{
 		DisableScreenStretch();
 		k = (28 * 512); // 14336;
@@ -2945,7 +2945,7 @@ void DrawRotatedScreen(int cx, int cy, byte *destscreen, int angle, int scale,
 		xst = (((-cx) * s) + (128 << 16)) - (cy * c);
 		xct = (((-cx) * c) + (256 << 16) + (1 << 18) - (1 << 16)) + (cy * s);
 	}
-	else if ((iGLOBAL_SCREENWIDTH == 640) && (masked == false))
+	else if ((iGLOBAL_SCREENWIDTH >= 640) && (masked == false))
 	{
 		xst = (((-cx) * s) + ((268) << 16)) - (cy * c);
 		xct = (((-cx) * c) + ((317) << 16) + (1 << 18) - (1 << 16)) + (cy * s);
@@ -3254,7 +3254,7 @@ void StartupScreenSaver(void)
 		ScreenSaver->pausex = 120;
 		ScreenSaver->pausey = 84;
 	}
-	else if (iGLOBAL_SCREENWIDTH == 640)
+	else if (iGLOBAL_SCREENWIDTH >= 640)
 	{
 		ScreenSaver->pausex = 240;
 		ScreenSaver->pausey = 201;
@@ -3350,7 +3350,7 @@ void UpdateScreenSaver(void)
 			ScreenSaver->pausex = RandomNumber("pausex", 0) % 240;
 			ScreenSaver->pausey = RandomNumber("pausey", 0) % 168;
 		}
-		else if (iGLOBAL_SCREENWIDTH == 640)
+		else if (iGLOBAL_SCREENWIDTH >= 640)
 		{
 			ScreenSaver->pausex = RandomNumber("pausex", 0) % 480;
 			ScreenSaver->pausey = RandomNumber("pausey", 0) % 403;
@@ -5075,7 +5075,7 @@ void DrawRotRow(int count, byte *dest, byte *src)
 			ecx += mr_ystep;
 		}
 	}
-	else if (iGLOBAL_SCREENWIDTH == 640)
+	else if (iGLOBAL_SCREENWIDTH >= 640)
 	{
 		while (count--)
 		{

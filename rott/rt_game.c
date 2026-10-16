@@ -384,7 +384,7 @@ void DrawPlayScreen(boolean bufferofsonly)
 
 	if (SHOW_TOP_STATUS_BAR())
 	{
-		if (iGLOBAL_SCREENWIDTH == 640)
+		if (iGLOBAL_SCREENWIDTH >= 640)
 		{
 			// use this as dummy pic to fill out missing bar
 			shape = (pic_t *)W_CacheLumpName("bottbar", PU_CACHE, Cvt_pic_t, 1);
@@ -438,7 +438,7 @@ void DrawPlayScreen(boolean bufferofsonly)
 		// else
 		{
 
-			if (iGLOBAL_SCREENWIDTH == 640)
+			if (iGLOBAL_SCREENWIDTH >= 640)
 			{
 				// bna fix - not to good? but no one has 286 any more
 				// statusbar dosent cover hole screen, because its a lump
@@ -468,7 +468,7 @@ void DrawPlayScreen(boolean bufferofsonly)
 		if (demoplayback)
 		{
 			shape = (pic_t *)W_CacheLumpName("demo", PU_CACHE, Cvt_pic_t, 1);
-			if (iGLOBAL_SCREENWIDTH == 640)
+			if (iGLOBAL_SCREENWIDTH >= 640)
 			{
 				// DrawPPic( 148, 185, shape->width, shape->height,
 				//    ( byte * )&shape->data, 1, true, bufferofsonly );bna

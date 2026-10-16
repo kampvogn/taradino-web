@@ -437,7 +437,7 @@ boolean ParseConfigFile(void)
 		ReadInt("ScreenHeight", &iGLOBAL_SCREENHEIGHT);
 
 		if ((iGLOBAL_SCREENWIDTH != 320 || iGLOBAL_SCREENHEIGHT != 200) &&
-			(iGLOBAL_SCREENWIDTH != 640 || iGLOBAL_SCREENHEIGHT != 480))
+			!IS_WIDE_RES(iGLOBAL_SCREENWIDTH, iGLOBAL_SCREENHEIGHT))
 		{
 			printf("WARNING: Invalid screen resolution %dx%d. Reverting to "
 				   "640x480.\n",

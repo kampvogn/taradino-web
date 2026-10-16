@@ -675,7 +675,7 @@ void SetupWads(void)
 					int width, height;
 					if ((sscanf(_argv[i], "%dx%d", &width, &height) == 2) &&
 						(((width == 320) && (height == 200)) ||
-						 ((width == 640) && (height == 480))))
+						 IS_WIDE_RES(width, height)))
 					{
 						iGLOBAL_SCREENWIDTH = width;
 						iGLOBAL_SCREENHEIGHT = height;
