@@ -1,0 +1,2 @@
+FROM emscripten/emsdk:4.0.10
+RUN pip3 install --no-cache-dir cmake==3.31.6 ninja==1.11.1.4 && embuilder build sdl2 && chmod -R a+rwX /emsdk/upstream/emscripten/cache

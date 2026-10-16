@@ -1,1 +1,15 @@
 *build*/
+
+# web/ (see web/README.md): built and downloaded files, never game data
+web/deps/
+web/libadlmidi/
+web/stage/
+web/shots/
+web/test/node_modules/
+web/test/package*.json
+*.WAD
+*.wad
+*.RTL
+*.RTC
+*.RTS
+*.zip
