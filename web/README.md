@@ -2,7 +2,7 @@
 
 This branch (`browser`) of [taradino](https://github.com/fabiangreffrath/taradino) builds the game to
 WebAssembly with Emscripten and adds network play in the browser. It runs at
-<https://kampvogn.dk/rott/>.
+<https://kampvogn.dk/games/rott/>.
 
 - **Shareware episode** ("The HUNT Begins"): Apogee's package `1rott13.zip`, hosted unchanged as its
   licence requires (see `VENDOR.DOC` inside it). The page unpacks it in the browser.
