@@ -1977,6 +1977,11 @@ void CheckRemoteRidicule(int scancode)
 //
 //******************************************************************************
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+EM_JS(int, web_wanted_width, (), { return Module.wantWidth | 0; });
+#endif
+
 void PollKeyboard(void)
 
 {
@@ -2068,6 +2073,12 @@ void PollKeyboard(void)
 				SetupScreen(true);
 			}
 		}
+
+#ifdef __EMSCRIPTEN__
+		// kampvogn.dk: the page wants another width (the window turned)
+		if (VL_ChangeScreenWidth(web_wanted_width()))
+			SetupScreen(true);
+#endif
 
 		// Shrink screen
 		if (Keyboard[sc_Minus])

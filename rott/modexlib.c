@@ -256,11 +256,9 @@ void WaitVBL(void)
 =======================
 */
 
-void VL_SetVGAPlaneMode(void)
+static void VL_SetupScreenTables(void)
 {
 	int i, offset;
-
-	GraphicsMode();
 
 	//
 	// set up lookup tables
@@ -290,11 +288,61 @@ void VL_SetVGAPlaneMode(void)
 
 	bufofsTopLimit = bufferofs + screensize - iGLOBAL_SCREENWIDTH;
 	bufofsBottomLimit = bufferofs + iGLOBAL_SCREENWIDTH;
+}
+
+void VL_SetVGAPlaneMode(void)
+{
+	GraphicsMode();
+	VL_SetupScreenTables();
 
 	// start stretched
 	EnableScreenStretch();
 	XFlipPage();
 }
+
+#ifdef __EMSCRIPTEN__
+// kampvogn.dk: a new width while playing (the page asks for one when the
+// window turns or is resized). The surfaces, the texture and the lookup
+// tables are made again at the new width, with the same palette; the caller
+// sets up the view and redraws (SetupScreen). Only while the 3D view is up:
+// the 320x200 screens (menus) are drawn into the unstretched surface.
+static SDL_Surface *VL_NewPalettedSurface(SDL_Surface *old)
+{
+	SDL_Surface *s = SDL_CreateRGBSurface(0, iGLOBAL_SCREENWIDTH,
+										  iGLOBAL_SCREENHEIGHT, 8, 0, 0, 0, 0);
+	SDL_SetPaletteColors(s->format->palette, old->format->palette->colors, 0, 256);
+	SDL_FillRect(s, NULL, 0);
+	SDL_FreeSurface(old);
+	return s;
+}
+
+boolean VL_ChangeScreenWidth(int width)
+{
+	if (width == iGLOBAL_SCREENWIDTH || StretchScreen ||
+		!IS_WIDE_RES(width, iGLOBAL_SCREENHEIGHT))
+		return false;
+
+	iGLOBAL_SCREENWIDTH = width;
+	SDL_SetWindowMinimumSize(screen, width, iGLOBAL_SCREENHEIGHT);
+	SDL_SetWindowSize(screen, width, iGLOBAL_SCREENHEIGHT);
+	SDL_RenderSetLogicalSize(renderer, width, iGLOBAL_SCREENHEIGHT);
+
+	sdl_surface = VL_NewPalettedSurface(sdl_surface);
+	if (unstretch_sdl_surface)
+		unstretch_sdl_surface = VL_NewPalettedSurface(unstretch_sdl_surface);
+
+	SDL_FreeSurface(argbbuffer);
+	argbbuffer = SDL_CreateRGBSurfaceWithFormatFrom(
+		NULL, width, iGLOBAL_SCREENHEIGHT, 0, 0, SDL_GetWindowPixelFormat(screen));
+	SDL_DestroyTexture(texture);
+	texture = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(screen),
+								SDL_TEXTUREACCESS_STREAMING, width,
+								iGLOBAL_SCREENHEIGHT);
+
+	VL_SetupScreenTables();
+	return true;
+}
+#endif
 
 /*
 =======================

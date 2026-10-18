@@ -455,9 +455,12 @@ function screenWidth() {
 try { $('classic').checked = localStorage.getItem('rott-classic') === '1'; } catch {}
 $('classic').addEventListener('change', () => { try { localStorage.setItem('rott-classic', $('classic').checked ? '1' : '0'); } catch {} });
 
-// Largest box with the game's aspect that fits the window, centred (the game draws 640x480)
+// Largest box with the game's aspect that fits the window, centred. The game
+// changes its width while playing when the window turns (Module.wantWidth,
+// read in PollKeyboard), so the aspect is the canvas's own.
 function fit() {
-	const c = $('canvas'), ar = SCREEN_W / 480;
+	const c = $('canvas'), ar = (c.width >= 640 ? c.width : SCREEN_W) / 480;
+	if (window.Module && window.__started) Module.wantWidth = screenWidth();
 	const w = Math.min(innerWidth, innerHeight * ar), h = w / ar;
 	Object.assign(c.style, { width: w + 'px', height: h + 'px', left: (innerWidth - w) / 2 + 'px', top: (innerHeight - h) / 2 + 'px' });
 }
@@ -634,7 +637,7 @@ async function start(mode = 'shareware', own = null, net = null) {
 			onAbort: (what) => stopped(mode, 'The game crashed: ' + what),
 		};
 		const s = document.createElement('script');
-		s.src = dir + 'taradino.js?v=7';
+		s.src = dir + 'taradino.js?v=8';
 		document.body.appendChild(s);
 	});
 	let files;

@@ -49,6 +49,9 @@ extern boolean graphicsmode;
 void GraphicsMode(void);
 void SetTextMode(void);
 void VL_SetVGAPlaneMode(void);
+#ifdef __EMSCRIPTEN__
+boolean VL_ChangeScreenWidth(int width);
+#endif
 void VL_ClearBuffer(byte *buf, byte color);
 void VL_ClearVideo(byte color);
 void VL_CopyPlanarPage(byte *src, byte *dest);
