@@ -1,0 +1,10 @@
+SDL_RenderPresent
+GLES2_RenderPresent
+SW_RenderPresent
+SDL_RenderFlush
+FlushRenderCommands
+SDL_RenderCopy*
+HandleMenu
+MultipleSliderMenu
+HandleMultiPageCustomMenu
+DoActor
