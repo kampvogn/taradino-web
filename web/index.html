@@ -659,7 +659,7 @@ async function start(mode = 'shareware', own = null, net = null) {
 			onAbort: (what) => stopped(mode, 'The game crashed: ' + what),
 		};
 		const s = document.createElement('script');
-		s.src = dir + 'taradino.js?v=8';
+		s.src = dir + 'taradino.js?v=9';
 		document.body.appendChild(s);
 	});
 	let files;
