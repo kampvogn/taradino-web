@@ -12,7 +12,9 @@ WebAssembly with Emscripten and adds network play in the browser. It runs at
   WebSocket relay. Everyone opens the same invite link and one player presses Start.
 - **Touch screens** (phones, tablets): a stick where the left thumb lands (walk, turn, run when pushed
   all the way) and FIRE, USE/OK, GUN, SIDE (strafe), MENU and MAP buttons. They send the keys a keyboard
-  would, so the game is unchanged. `?touch` shows them on any screen.
+  would, so the game is unchanged. They show while playing (the game tells the page when it draws 3D
+  frames); in the intro and the menus only BACK shows, a tap selects and a swipe moves. `?touch` shows
+  them on any screen.
 - **High resolution**: the 3D view is rendered as sharp as the screen (its device pixels, up to
   1920x1080); the game's own screen (status bar, text, menus) stays 480 lines and is scaled over it,
   so all of that is unchanged. "Original resolution" on the start page turns it off.

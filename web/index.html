@@ -73,6 +73,8 @@
 	#stick { width: 130px; height: 130px; margin: -65px 0 0 -65px; border: 2px solid rgba(255, 190, 110, .35); background: rgba(40, 20, 0, .18); }
 	#knob { width: 54px; height: 54px; margin: -27px 0 0 -27px; background: rgba(255, 190, 110, .45); }
 	#stick[hidden], #knob[hidden] { display: none; }
+	/* outside the game (intro, menus): no stick or game buttons; tap = select, swipe = move */
+	#touch.menu #tfire, #touch.menu #tuse, #touch.menu #tswap, #touch.menu #tstrafe, #touch.menu #tmap { display: none; }
 </style>
 </head>
 <body>
@@ -572,6 +574,44 @@ function touchControls() {
 		b.addEventListener('pointercancel', up);
 		b.addEventListener('lostpointercapture', up);
 	}
+	// Outside the game (no 3D frames for a moment: intro, menus, end of level)
+	// only MENU (Escape) is shown; a tap selects (Enter) and a swipe moves
+	// (arrows), one step per 40 px
+	let playing = false;
+	const tapKey = (name) => { key(name, true); setTimeout(() => key(name, false), 90); };
+	const setMode = () => {
+		const now = !!(window.Module && Module.lastPlayFrame && performance.now() - Module.lastPlayFrame < 400);
+		if (now === playing) return;
+		playing = now;
+		pad.classList.toggle('menu', !playing);
+		$('tesc').textContent = playing ? 'MENU' : 'BACK';
+		for (const n of ['up', 'down', 'left', 'right', 'run', 'fire', 'use', 'swap', 'strafe', 'map']) key(n, false);
+		for (const b of pad.querySelectorAll('button')) b.classList.remove('on');
+		sid = null; stick.hidden = knob.hidden = true;
+	};
+	pad.classList.add('menu');
+	$('tesc').textContent = 'BACK';
+	setInterval(setMode, 200);
+	let mid = null, mx = 0, my = 0, mt = 0, moved = false;
+	pad.addEventListener('pointerdown', (e) => {
+		if (playing || e.target !== pad || mid !== null) return;
+		e.preventDefault();
+		mid = e.pointerId; mx = e.clientX; my = e.clientY; mt = performance.now(); moved = false;
+		pad.setPointerCapture(mid);
+	});
+	pad.addEventListener('pointermove', (e) => {
+		if (playing || e.pointerId !== mid) return;
+		const dx = e.clientX - mx, dy = e.clientY - my;
+		if (Math.abs(dy) >= 40) { tapKey(dy < 0 ? 'up' : 'down'); my = e.clientY; mx = e.clientX; moved = true; }
+		else if (Math.abs(dx) >= 40) { tapKey(dx < 0 ? 'left' : 'right'); mx = e.clientX; my = e.clientY; moved = true; }
+	});
+	const menuEnd = (e) => {
+		if (e.pointerId !== mid) return;
+		mid = null;
+		if (!playing && !moved && performance.now() - mt < 400) tapKey('swap'); // Enter
+	};
+	pad.addEventListener('pointerup', menuEnd);
+	pad.addEventListener('pointercancel', (e) => { if (e.pointerId === mid) mid = null; });
 	// stick: any touch on the free area
 	let sid = null, ox = 0, oy = 0;
 	const R = 58, DEAD = 0.28;
@@ -582,7 +622,7 @@ function touchControls() {
 		key('run', d > 0.95);
 	};
 	pad.addEventListener('pointerdown', (e) => {
-		if (e.target !== pad || sid !== null) return;
+		if (!playing || e.target !== pad || sid !== null) return;
 		e.preventDefault();
 		sid = e.pointerId; ox = e.clientX; oy = e.clientY;
 		pad.setPointerCapture(sid);
@@ -659,7 +699,7 @@ async function start(mode = 'shareware', own = null, net = null) {
 			onAbort: (what) => stopped(mode, 'The game crashed: ' + what),
 		};
 		const s = document.createElement('script');
-		s.src = dir + 'taradino.js?v=9';
+		s.src = dir + 'taradino.js?v=10';
 		document.body.appendChild(s);
 	});
 	let files;

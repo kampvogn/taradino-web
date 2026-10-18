@@ -2479,6 +2479,11 @@ void DrawPlayerLocation(void)
 */
 
 int playerview = 0;
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+EM_JS(void, web_playing, (), { Module.lastPlayFrame = performance.now(); });
+#endif
+
 void ThreeDRefresh(void)
 {
 	objtype *tempptr;
@@ -2493,6 +2498,7 @@ void ThreeDRefresh(void)
 
 #ifdef __EMSCRIPTEN__
 	HiRes_Begin(); // the 3D view at high resolution, if the page asked for it
+	web_playing(); // the page shows its game controls while frames like this come
 #endif
 	bufferofs += screenofs;
 
