@@ -467,6 +467,21 @@ function stopped(mode, text) {
 	for (const l of lines) { const d = document.createElement('div'); d.textContent = l; $('msg').appendChild(d); }
 }
 
+// Sound on iPhone/iPad: Safari starts audio only from a tap or key, and SDL
+// creates its audio context when the game opens the sound device, which may
+// be long after (or, for a network client, without) a tap. So every tap or
+// key creates or resumes one context, which the game gets (Module.SDL2). A
+// playback audio session keeps the silent switch from muting it (iOS 17+).
+let audioCtx = null;
+function unlockAudio() {
+	try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+	const AC = window.AudioContext || window.webkitAudioContext;
+	if (!AC) return;
+	if (!audioCtx) audioCtx = (window.Module && Module.SDL2 && Module.SDL2.audioContext) || new AC();
+	if (audioCtx.state !== 'running') audioCtx.resume().catch(() => {});
+}
+for (const ev of ['click', 'touchend', 'keydown']) addEventListener(ev, unlockAudio, true);
+
 // mode 'shareware': Apogee's package from this site; 'full': the player's own
 // files with the registered build (full/)
 async function start(mode = 'shareware', own = null, net = null) {
@@ -478,6 +493,7 @@ async function start(mode = 'shareware', own = null, net = null) {
 	const runtime = new Promise((resolve) => {
 		window.Module = {
 			canvas: $('canvas'),
+			SDL2: audioCtx ? { audioContext: audioCtx } : undefined,
 			locateFile: (p) => dir + p,
 			rottnet: net,
 			print: (t) => { console.log(t); lastLines.push(t); lastLines.splice(0, lastLines.length - 4); },
