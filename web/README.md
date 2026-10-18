@@ -13,6 +13,8 @@ WebAssembly with Emscripten and adds network play in the browser. It runs at
 - **Touch screens** (phones, tablets): a stick where the left thumb lands (walk, turn, run when pushed
   all the way) and FIRE, USE/OK, GUN, SIDE (strafe), MENU and MAP buttons. They send the keys a keyboard
   would, so the game is unchanged. `?touch` shows them on any screen.
+- **Gamepads** (standard mapping, e.g. Xbox/PlayStation controllers over Bluetooth): left stick walks and
+  strafes, right stick turns, d-pad for the menus; RT fire, A use/OK, B back, X gun, Y map, LT run, Start menu.
 
 ## Changes to taradino
 

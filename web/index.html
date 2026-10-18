@@ -481,26 +481,65 @@ function fullscreenButton() {
 	sync(); btn.hidden = false; wake();
 }
 
-// Touch controls: the game reads the keyboard, so the stick and buttons send
-// the keys a keyboard would (SDL listens on the window). The stick appears
+// The game reads the keyboard, so touch and gamepad controls send the keys a
+// keyboard would (SDL listens on the window: keyCode, code and location).
+const KEYS = {
+	up: ['ArrowUp', 38, 'ArrowUp'], down: ['ArrowDown', 40, 'ArrowDown'], left: ['ArrowLeft', 37, 'ArrowLeft'], right: ['ArrowRight', 39, 'ArrowRight'],
+	fire: ['ControlLeft', 17, 'Control', 1], strafe: ['AltLeft', 18, 'Alt', 1], run: ['ShiftRight', 16, 'Shift', 2],
+	use: ['Space', 32, ' '], swap: ['Enter', 13, 'Enter'], map: ['Tab', 9, 'Tab'], esc: ['Escape', 27, 'Escape'],
+	sleft: ['Comma', 188, ','], sright: ['Period', 190, '.'],
+};
+// one owner per key ("touch", "pad"): a key is down while any owner holds it
+const holders = {};
+function virtualKey(name, down, owner) {
+	const set = holders[name] || (holders[name] = new Set());
+	const was = set.size > 0;
+	if (down) set.add(owner); else set.delete(owner);
+	const now = set.size > 0;
+	if (was === now) return;
+	const [code, keyCode, k, location] = KEYS[name];
+	const ev = new KeyboardEvent(now ? 'keydown' : 'keyup', { code, key: k, location: location || 0, bubbles: true, cancelable: true });
+	for (const p of ['keyCode', 'which']) Object.defineProperty(ev, p, { get: () => keyCode });
+	window.dispatchEvent(ev);
+}
+// a page in the background must not keep a key down
+document.addEventListener('visibilitychange', () => { if (document.hidden) for (const n in holders) for (const o of [...holders[n]]) virtualKey(n, false, o); });
+
+// Gamepad (standard mapping): left stick walks and strafes (runs when pushed
+// all the way), right stick turns, d-pad = arrows; RT fire, A use/OK, B back,
+// X gun, Y map, LT run, Start menu.
+function gamepadControls() {
+	const BUTTONS = { 7: 'fire', 0: 'use', 1: 'esc', 2: 'swap', 3: 'map', 6: 'run', 10: 'run', 9: 'esc', 12: 'up', 13: 'down', 14: 'left', 15: 'right', 4: 'sleft', 5: 'sright' };
+	const T = 0.4;
+	let raf = 0;
+	const poll = () => {
+		raf = 0;
+		const pads = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean);
+		const want = {};
+		for (const p of pads) {
+			for (const [i, name] of Object.entries(BUTTONS)) if (p.buttons[i] && (p.buttons[i].pressed || p.buttons[i].value > 0.5)) want[name + '/' + i] = name;
+			const [lx = 0, ly = 0, rx = 0] = p.axes;
+			if (ly < -T) want.ly = 'up'; if (ly > T) want.ly = 'down';
+			if (lx < -T) want.lx = 'sleft'; if (lx > T) want.lx = 'sright';
+			if (Math.hypot(lx, ly) > 0.95) want.lr = 'run';
+			if (rx < -T) want.rx = 'left'; if (rx > T) want.rx = 'right';
+		}
+		const names = new Set(Object.values(want));
+		for (const n of Object.keys(KEYS)) virtualKey(n, names.has(n), 'pad');
+		if (pads.length) raf = requestAnimationFrame(poll);
+	};
+	const start = () => { if (!raf) raf = requestAnimationFrame(poll); };
+	addEventListener('gamepadconnected', start);
+	addEventListener('gamepaddisconnected', start);
+	start();
+}
+
+// Touch controls: the stick appears
 // where the left thumb lands: up/down walk, left/right turn, pushed all the
 // way it runs; with SIDE held, left/right strafe. USE (space) is also OK in
 // the menus, MENU is Escape.
 function touchControls() {
-	const KEYS = {
-		up: ['ArrowUp', 38, 'ArrowUp'], down: ['ArrowDown', 40, 'ArrowDown'], left: ['ArrowLeft', 37, 'ArrowLeft'], right: ['ArrowRight', 39, 'ArrowRight'],
-		fire: ['ControlLeft', 17, 'Control', 1], strafe: ['AltLeft', 18, 'Alt', 1], run: ['ShiftRight', 16, 'Shift', 2],
-		use: ['Space', 32, ' '], swap: ['Enter', 13, 'Enter'], map: ['Tab', 9, 'Tab'], esc: ['Escape', 27, 'Escape'],
-	};
-	const held = {};
-	const key = (name, down) => {
-		if (!!held[name] === down) return;
-		held[name] = down;
-		const [code, keyCode, k, location] = KEYS[name];
-		const ev = new KeyboardEvent(down ? 'keydown' : 'keyup', { code, key: k, location: location || 0, bubbles: true, cancelable: true });
-		for (const p of ['keyCode', 'which']) Object.defineProperty(ev, p, { get: () => keyCode });
-		window.dispatchEvent(ev);
-	};
+	const key = (name, down) => virtualKey(name, down, 'touch');
 	const pad = $('touch'), stick = $('stick'), knob = $('knob');
 	pad.hidden = false;
 	// buttons: held while touched
@@ -543,8 +582,6 @@ function touchControls() {
 	};
 	pad.addEventListener('pointerup', end);
 	pad.addEventListener('pointercancel', end);
-	// a page in the background must not keep a key down
-	document.addEventListener('visibilitychange', () => { if (document.hidden) for (const n in held) key(n, false); });
 }
 const isTouch = () => matchMedia('(pointer: coarse)').matches || new URLSearchParams(location.search).has('touch');
 
@@ -628,6 +665,7 @@ async function start(mode = 'shareware', own = null, net = null) {
 	fit();
 	fullscreenButton();
 	if (isTouch()) touchControls();
+	gamepadControls();
 	$('canvas').focus();
 	window.__started = true;
 	// always explicit: the game would otherwise take the width saved in its config
