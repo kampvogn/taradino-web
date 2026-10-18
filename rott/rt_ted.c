@@ -1176,7 +1176,13 @@ void PreCache(void)
 			// Cvt_font_t, 1); 	bigfont = (font_t *)shape;
 			CurrentFont = newfont1; // smallfont;
 
+#ifdef __EMSCRIPTEN__
+			// browser: the network code syncs the start, so do not wait for
+			// every player to press a key (a key still skips the pause)
+			strcpy(buf, "Get Ready");
+#else
 			strcpy(buf, "Press Any Key");
+#endif
 			US_MeasureStr(&width, &height, "%s", &buf[0]);
 			PrintX = (iGLOBAL_SCREENWIDTH - (width)) / 2;
 			PrintY = WHratio * iGLOBAL_SCREENHEIGHT; // 162;
@@ -1185,9 +1191,13 @@ void PreCache(void)
 
 			VW_UpdateScreen();
 
+#ifdef __EMSCRIPTEN__
+			I_Delay(15);
+#else
 			IN_StartAck();
 			while (!IN_CheckAck())
 				;
+#endif
 		}
 		//  EnableScreenStretch();
 	}
