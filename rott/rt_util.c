@@ -1017,6 +1017,10 @@ void VL_FillPalette(int red, int green, int blue)
 	if (unstretch_sdl_surface)
 		SDL_SetPaletteColors(unstretch_sdl_surface->format->palette, cmap, 0,
 							 256);
+#ifdef __EMSCRIPTEN__
+	if (hires_surface)
+		SDL_SetPaletteColors(hires_surface->format->palette, cmap, 0, 256);
+#endif
 }
 
 //===========================================================================
@@ -1067,6 +1071,10 @@ void VL_SetPalette(byte *palette)
 	if (unstretch_sdl_surface)
 		SDL_SetPaletteColors(unstretch_sdl_surface->format->palette, cmap, 0,
 							 256);
+#ifdef __EMSCRIPTEN__
+	if (hires_surface)
+		SDL_SetPaletteColors(hires_surface->format->palette, cmap, 0, 256);
+#endif
 }
 
 //===========================================================================

@@ -83,6 +83,7 @@
 	<h2>THE HUNT BEGINS</h2>
 	<button id="go" type="button">▶ Play the shareware episode</button>
 	<label class="small"><input type="checkbox" id="classic"> Classic 4:3 screen (otherwise as wide as your window)</label>
+	<label class="small"><input type="checkbox" id="lowres"> Original resolution (480 lines; otherwise the 3D view as sharp as your screen, up to 1080)</label>
 	<div class="own">
 		<button id="own" type="button">Use your own files (full version)</button>
 		<span id="ownmsg" class="small"></span>
@@ -445,7 +446,7 @@ $('mpstart').addEventListener('click', () => {
 
 // The game's width at 480 high: the window's shape when the game starts, 640 (the original
 // 4:3) to 1024 (about 2.1:1), or 640 with "Classic 4:3". ?w=864 forces a width (tests).
-let SCREEN_W = 640, SCREEN_H = 480;
+let SCREEN_W = 640, SCREEN_H = 480, HIRES = null;
 // ?res=WxH (taller than 480: tests of the high-resolution renderer)
 const forcedRes = (new URLSearchParams(location.search).get('res') || '').match(/^(\d+)x(\d+)$/);
 function screenWidth() {
@@ -455,6 +456,18 @@ function screenWidth() {
 	return Math.min(1024, Math.max(640, Math.round(480 * innerWidth / innerHeight / 16) * 16));
 }
 try { $('classic').checked = localStorage.getItem('rott-classic') === '1'; } catch {}
+try { $('lowres').checked = localStorage.getItem('rott-lowres') === '1'; } catch {}
+$('lowres').addEventListener('change', () => { try { localStorage.setItem('rott-lowres', $('lowres').checked ? '1' : '0'); } catch {} });
+// The 3D view's own resolution for a game screen gw x 480: the window's
+// device pixels in the same shape, up to 1920 x 1080; none below 600 lines
+function hiresSize(gw) {
+	if (forcedRes) return [+forcedRes[1], +forcedRes[2]];
+	if ($('lowres').checked) return null;
+	let h = Math.min(1080, Math.floor(innerHeight * (devicePixelRatio || 1) / 8) * 8);
+	let w = Math.round(h * gw / 480 / 16) * 16;
+	if (w > 1920) { w = 1920; h = Math.floor(1920 * 480 / gw / 8) * 8; }
+	return h >= 600 ? [w, h] : null;
+}
 $('classic').addEventListener('change', () => { try { localStorage.setItem('rott-classic', $('classic').checked ? '1' : '0'); } catch {} });
 
 // Largest box with the game's aspect that fits the window, centred. The game
@@ -462,7 +475,10 @@ $('classic').addEventListener('change', () => { try { localStorage.setItem('rott
 // read in PollKeyboard), so the aspect is the canvas's own.
 function fit() {
 	const c = $('canvas'), ar = c.width >= 640 ? c.width / c.height : SCREEN_W / SCREEN_H;
-	if (window.Module && window.__started && !forcedRes) Module.wantWidth = screenWidth();
+	if (window.Module && window.__started && !forcedRes) {
+		Module.wantWidth = screenWidth();
+		Module.wantHires = hiresSize(Module.wantWidth);
+	}
 	const w = Math.min(innerWidth, innerHeight * ar), h = w / ar;
 	Object.assign(c.style, { width: w + 'px', height: h + 'px', left: (innerWidth - w) / 2 + 'px', top: (innerHeight - h) / 2 + 'px' });
 }
@@ -621,13 +637,16 @@ for (const ev of ['click', 'touchend', 'keydown']) addEventListener(ev, unlockAu
 // files with the registered build (full/)
 async function start(mode = 'shareware', own = null, net = null) {
 	SCREEN_W = screenWidth();
-	if (forcedRes) { SCREEN_W = +forcedRes[1]; SCREEN_H = +forcedRes[2]; }
+	if (forcedRes)	// the game's own screen stays 480 lines, as wide as the forced shape
+		SCREEN_W = Math.min(1024, Math.max(640, Math.round(480 * forcedRes[1] / forcedRes[2] / 16) * 16));
+	HIRES = hiresSize(SCREEN_W);
 	$('start').hidden = true;
 	$('status').hidden = false;
 	$('msg').textContent = 'Loading…';
 	const dir = mode === 'full' ? 'full/' : '';
 	const runtime = new Promise((resolve) => {
 		window.Module = {
+			hires: HIRES, // the 3D view's own resolution (modexlib.c: web_hires_size)
 			canvas: $('canvas'),
 			SDL2: audioCtx ? { audioContext: audioCtx } : undefined,
 			locateFile: (p) => dir + p,
@@ -675,7 +694,7 @@ async function start(mode = 'shareware', own = null, net = null) {
 	$('canvas').focus();
 	window.__started = true;
 	// always explicit: the game would otherwise take the width saved in its config
-	Module.callMain([...(net ? ['-net'] : []), '-resolution', SCREEN_W + 'x' + SCREEN_H]);
+	Module.callMain([...(net ? ['-net'] : []), '-resolution', SCREEN_W + 'x480']);
 }
 
 const launch = (mode, own, net) => start(mode, own, net).catch((e) => {

@@ -51,6 +51,11 @@ void SetTextMode(void);
 void VL_SetVGAPlaneMode(void);
 #ifdef __EMSCRIPTEN__
 boolean VL_ChangeScreenWidth(int width);
+boolean VL_ChangeHiRes(int w, int h);
+#define HIRES_KEY 255 // view area in the game's screen when the 3D layer is high resolution
+extern int hires_w, hires_h;
+extern boolean hires_valid;
+extern struct SDL_Surface *hires_surface;
 #endif
 void VL_ClearBuffer(byte *buf, byte color);
 void VL_ClearVideo(byte color);

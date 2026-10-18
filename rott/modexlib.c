@@ -63,6 +63,55 @@ static SDL_Renderer *renderer;
 static SDL_Surface *argbbuffer;
 static SDL_Texture *texture;
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+// kampvogn.dk: high resolution. The game runs at its 480-line resolution
+// (status bar, text, menus as they are); only the 3D view is rendered at
+// hires_w x hires_h into hires_surface (rt_view.c: HiRes_Begin/End around
+// the 3D part of ThreeDRefresh). A frame is the 3D layer with the game's
+// screen scaled over it, HIRES_KEY pixels (the view area) transparent.
+SDL_Surface *hires_surface = NULL;
+static SDL_Surface *hires_argb;
+static SDL_Texture *hires_texture;
+int hires_w = 0, hires_h = 0;
+boolean hires_valid = false; // the 3D layer belongs to the frame on screen
+
+EM_JS(int, web_hires_size, (int *w, int *h), {
+	const r = Module.hires;
+	if (!r || !r[0] || !r[1]) return 0;
+	HEAP32[w >> 2] = r[0]; HEAP32[h >> 2] = r[1];
+	return 1;
+});
+
+static Uint32 VL_TexFormat(void)
+{
+	return hires_w ? SDL_PIXELFORMAT_ARGB8888 : SDL_GetWindowPixelFormat(screen);
+}
+
+static void VL_MakeHiResSurfaces(void)
+{
+	if (hires_surface)
+	{
+		SDL_FreeSurface(hires_surface);
+		SDL_FreeSurface(hires_argb);
+		SDL_DestroyTexture(hires_texture);
+	}
+	hires_surface = SDL_CreateRGBSurface(0, hires_w, hires_h, 8, 0, 0, 0, 0);
+	if (sdl_surface)
+		SDL_SetPaletteColors(hires_surface->format->palette,
+							 sdl_surface->format->palette->colors, 0, 256);
+	SDL_FillRect(hires_surface, NULL, 0);
+	hires_argb = SDL_CreateRGBSurfaceWithFormatFrom(NULL, hires_w, hires_h, 0, 0,
+													 SDL_PIXELFORMAT_ARGB8888);
+	hires_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+									  SDL_TEXTUREACCESS_STREAMING, hires_w, hires_h);
+	SDL_SetTextureBlendMode(hires_texture, SDL_BLENDMODE_NONE);
+	hires_valid = false;
+}
+#else
+#define VL_TexFormat() SDL_GetWindowPixelFormat(screen)
+#endif
+
 SDL_Window *VL_GetVideoWindow(void)
 {
 	return screen;
@@ -112,10 +161,24 @@ void GraphicsMode(void)
 	}
 #endif
 
+#ifdef __EMSCRIPTEN__
+	if (!web_hires_size(&hires_w, &hires_h) ||
+		hires_w < iGLOBAL_SCREENWIDTH || hires_h <= iGLOBAL_SCREENHEIGHT ||
+		hires_w > MAXSCREENWIDTH || hires_h > MAXSCREENHEIGHT)
+		hires_w = hires_h = 0;
+	{
+		const int ww = hires_w ? hires_w : iGLOBAL_SCREENWIDTH;
+		const int wh = hires_w ? hires_h : iGLOBAL_SCREENHEIGHT;
+		screen = SDL_CreateWindow(NULL, SDL_WINDOWPOS_CENTERED,
+								  SDL_WINDOWPOS_CENTERED, ww, wh, flags);
+		SDL_SetWindowMinimumSize(screen, ww, wh);
+	}
+#else
 	screen =
 		SDL_CreateWindow(NULL, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 						 iGLOBAL_SCREENWIDTH, iGLOBAL_SCREENHEIGHT, flags);
 	SDL_SetWindowMinimumSize(screen, iGLOBAL_SCREENWIDTH, iGLOBAL_SCREENHEIGHT);
+#endif
 	SDL_SetWindowTitle(screen, PACKAGE_STRING);
 
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
@@ -124,7 +187,12 @@ void GraphicsMode(void)
 	{
 		renderer = SDL_CreateRenderer(screen, -1, SDL_RENDERER_SOFTWARE);
 	}
-	SDL_RenderSetLogicalSize(renderer, iGLOBAL_SCREENWIDTH, iGLOBAL_SCREENHEIGHT);
+#ifdef __EMSCRIPTEN__
+	if (hires_w)
+		SDL_RenderSetLogicalSize(renderer, hires_w, hires_h);
+	else
+#endif
+		SDL_RenderSetLogicalSize(renderer, iGLOBAL_SCREENWIDTH, iGLOBAL_SCREENHEIGHT);
 
 	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 	SDL_RenderClear(renderer);
@@ -136,11 +204,18 @@ void GraphicsMode(void)
 
 	argbbuffer = SDL_CreateRGBSurfaceWithFormatFrom(
 		NULL, iGLOBAL_SCREENWIDTH, iGLOBAL_SCREENHEIGHT, 0, 0,
-		SDL_GetWindowPixelFormat(screen));
+		VL_TexFormat());
 
-	texture = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(screen),
+	texture = SDL_CreateTexture(renderer, VL_TexFormat(),
 								SDL_TEXTUREACCESS_STREAMING,
 								iGLOBAL_SCREENWIDTH, iGLOBAL_SCREENHEIGHT);
+#ifdef __EMSCRIPTEN__
+	if (hires_w)
+	{
+		SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+		VL_MakeHiResSurfaces();
+	}
+#endif
 
 	SetShowCursor(!sdl_fullscreen);
 
@@ -316,6 +391,42 @@ static SDL_Surface *VL_NewPalettedSurface(SDL_Surface *old)
 	return s;
 }
 
+// a new size for the 3D layer (the page asks when the window changes); 0x0: none
+boolean VL_ChangeHiRes(int w, int h)
+{
+	if (w == hires_w && h == hires_h)
+		return false;
+	if (w && (w < iGLOBAL_SCREENWIDTH || h <= iGLOBAL_SCREENHEIGHT ||
+			  w > MAXSCREENWIDTH || h > MAXSCREENHEIGHT))
+		return false;
+	hires_w = w;
+	hires_h = h;
+	if (hires_w)
+	{
+		SDL_SetWindowMinimumSize(screen, hires_w, hires_h);
+		SDL_SetWindowSize(screen, hires_w, hires_h);
+		SDL_RenderSetLogicalSize(renderer, hires_w, hires_h);
+		VL_MakeHiResSurfaces();
+	}
+	else
+	{
+		SDL_SetWindowMinimumSize(screen, iGLOBAL_SCREENWIDTH, iGLOBAL_SCREENHEIGHT);
+		SDL_SetWindowSize(screen, iGLOBAL_SCREENWIDTH, iGLOBAL_SCREENHEIGHT);
+		SDL_RenderSetLogicalSize(renderer, iGLOBAL_SCREENWIDTH, iGLOBAL_SCREENHEIGHT);
+		hires_valid = false;
+	}
+	// the game's texture: with or without see-through pixels
+	SDL_FreeSurface(argbbuffer);
+	argbbuffer = SDL_CreateRGBSurfaceWithFormatFrom(
+		NULL, iGLOBAL_SCREENWIDTH, iGLOBAL_SCREENHEIGHT, 0, 0, VL_TexFormat());
+	SDL_DestroyTexture(texture);
+	texture = SDL_CreateTexture(renderer, VL_TexFormat(), SDL_TEXTUREACCESS_STREAMING,
+								iGLOBAL_SCREENWIDTH, iGLOBAL_SCREENHEIGHT);
+	if (hires_w)
+		SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+	return true;
+}
+
 boolean VL_ChangeScreenWidth(int width)
 {
 	if (width == iGLOBAL_SCREENWIDTH || StretchScreen ||
@@ -323,9 +434,12 @@ boolean VL_ChangeScreenWidth(int width)
 		return false;
 
 	iGLOBAL_SCREENWIDTH = width;
-	SDL_SetWindowMinimumSize(screen, width, iGLOBAL_SCREENHEIGHT);
-	SDL_SetWindowSize(screen, width, iGLOBAL_SCREENHEIGHT);
-	SDL_RenderSetLogicalSize(renderer, width, iGLOBAL_SCREENHEIGHT);
+	if (!hires_w)
+	{
+		SDL_SetWindowMinimumSize(screen, width, iGLOBAL_SCREENHEIGHT);
+		SDL_SetWindowSize(screen, width, iGLOBAL_SCREENHEIGHT);
+		SDL_RenderSetLogicalSize(renderer, width, iGLOBAL_SCREENHEIGHT);
+	}
 
 	sdl_surface = VL_NewPalettedSurface(sdl_surface);
 	if (unstretch_sdl_surface)
@@ -333,11 +447,14 @@ boolean VL_ChangeScreenWidth(int width)
 
 	SDL_FreeSurface(argbbuffer);
 	argbbuffer = SDL_CreateRGBSurfaceWithFormatFrom(
-		NULL, width, iGLOBAL_SCREENHEIGHT, 0, 0, SDL_GetWindowPixelFormat(screen));
+		NULL, width, iGLOBAL_SCREENHEIGHT, 0, 0, VL_TexFormat());
 	SDL_DestroyTexture(texture);
-	texture = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(screen),
+	texture = SDL_CreateTexture(renderer, VL_TexFormat(),
 								SDL_TEXTUREACCESS_STREAMING, width,
 								iGLOBAL_SCREENHEIGHT);
+	if (hires_w)
+		SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+	hires_valid = false;
 
 	VL_SetupScreenTables();
 	return true;
@@ -401,6 +518,46 @@ void VL_ClearVideo(byte color)
 
 /* C version of rt_vh_a.asm */
 
+static void VL_Present(void)
+{
+#ifdef __EMSCRIPTEN__
+	if (hires_w && hires_valid)
+	{
+		// the 3D layer, then the game's screen with the view area see-through
+		if (SDL_LockTexture(hires_texture, NULL, &hires_argb->pixels,
+							&hires_argb->pitch) == 0)
+		{
+			SDL_BlitSurface(hires_surface, NULL, hires_argb, NULL);
+			SDL_UnlockTexture(hires_texture);
+		}
+		SDL_SetColorKey(sdl_surface, SDL_TRUE, HIRES_KEY);
+		if (SDL_LockTexture(texture, NULL, &argbbuffer->pixels,
+							&argbbuffer->pitch) == 0)
+		{
+			SDL_FillRect(argbbuffer, NULL, 0);
+			SDL_BlitSurface(sdl_surface, NULL, argbbuffer, NULL);
+			SDL_UnlockTexture(texture);
+		}
+		SDL_SetColorKey(sdl_surface, SDL_FALSE, 0);
+		SDL_RenderClear(renderer);
+		SDL_RenderCopy(renderer, hires_texture, NULL, NULL);
+		SDL_RenderCopy(renderer, texture, NULL, NULL);
+		SDL_RenderPresent(renderer);
+		return;
+	}
+#endif
+	if (SDL_LockTexture(texture, NULL, &argbbuffer->pixels,
+						&argbbuffer->pitch) == 0)
+	{
+		SDL_BlitSurface(sdl_surface, NULL, argbbuffer, NULL);
+		SDL_UnlockTexture(texture);
+	}
+
+	SDL_RenderClear(renderer);
+	SDL_RenderCopy(renderer, texture, NULL, NULL);
+	SDL_RenderPresent(renderer);
+}
+
 void VH_UpdateScreen(void)
 {
 	if (StretchScreen)
@@ -412,16 +569,7 @@ void VH_UpdateScreen(void)
 		DrawCenterAim();
 	}
 
-	if (SDL_LockTexture(texture, NULL, &argbbuffer->pixels,
-						&argbbuffer->pitch) == 0)
-	{
-		SDL_BlitSurface(sdl_surface, NULL, argbbuffer, NULL);
-		SDL_UnlockTexture(texture);
-	}
-
-	SDL_RenderClear(renderer);
-	SDL_RenderCopy(renderer, texture, NULL, NULL);
-	SDL_RenderPresent(renderer);
+	VL_Present();
 }
 
 /*
@@ -443,22 +591,16 @@ void XFlipPage(void)
 		DrawCenterAim();
 	}
 
-	if (SDL_LockTexture(texture, NULL, &argbbuffer->pixels,
-						&argbbuffer->pitch) == 0)
-	{
-		SDL_BlitSurface(sdl_surface, NULL, argbbuffer, NULL);
-		SDL_UnlockTexture(texture);
-	}
-
-	SDL_RenderClear(renderer);
-	SDL_RenderCopy(renderer, texture, NULL, NULL);
-	SDL_RenderPresent(renderer);
+	VL_Present();
 }
 
 void EnableScreenStretch(void)
 {
 	if (iGLOBAL_SCREENWIDTH <= 320 || StretchScreen)
 		return;
+#ifdef __EMSCRIPTEN__
+	hires_valid = false; // the 320x200 screens have no 3D layer
+#endif
 
 	if (unstretch_sdl_surface == NULL)
 	{

@@ -410,6 +410,9 @@ void SetViewSize(int size)
 	//   SetViewDelta();
 
 	CalcProjection();
+#ifdef __EMSCRIPTEN__
+	HiRes_ViewChanged();
+#endif
 }
 
 //******************************************************************************
@@ -891,3 +894,172 @@ void SetModemLightLevel(int type)
 			break;
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+#include "SDL.h"
+/*
+====================
+=
+= High-resolution 3D view (kampvogn.dk)
+=
+= The game keeps its 480-line screen; HiRes_Begin switches the screen and view
+= globals to the high-resolution layer (modexlib.c: hires_surface) for the 3D
+= part of ThreeDRefresh, HiRes_End switches back and marks the view area in
+= the game's screen see-through (HIRES_KEY). The high-resolution view is the
+= game's view rectangle scaled up; its projection is made again when the
+= game's view changes (SetViewSize).
+=
+====================
+*/
+
+typedef struct
+{
+	int screenwidth, screenheight, linewidth, screensize;
+	int ylookup[MAXSCREENHEIGHT];
+	byte *buffer;
+	int viewwidth, viewheight, centerx, centery, centeryfrac, screenofs;
+	int weaponscale, yzangleconverter;
+	short pixelangle[MAXSCREENWIDTH];
+} viewcontext_t;
+
+static viewcontext_t gamectx, hirectx;
+static boolean hires_dirty = true, hires_in = false;
+static int hires_lx, hires_ly, hires_lw, hires_lh; // the game's view rectangle
+
+static void SaveViewContext(viewcontext_t *c)
+{
+	c->screenwidth = iGLOBAL_SCREENWIDTH;
+	c->screenheight = iGLOBAL_SCREENHEIGHT;
+	c->linewidth = linewidth;
+	c->screensize = screensize;
+	memcpy(c->ylookup, ylookup, sizeof(int) * iGLOBAL_SCREENHEIGHT);
+	c->buffer = bufferofs;
+	c->viewwidth = viewwidth;
+	c->viewheight = viewheight;
+	c->centerx = centerx;
+	c->centery = centery;
+	c->centeryfrac = centeryfrac;
+	c->screenofs = screenofs;
+	c->weaponscale = weaponscale;
+	c->yzangleconverter = yzangleconverter;
+	memcpy(c->pixelangle, pixelangle, sizeof(short) * viewwidth);
+}
+
+static void LoadViewContext(const viewcontext_t *c)
+{
+	iGLOBAL_SCREENWIDTH = c->screenwidth;
+	iGLOBAL_SCREENHEIGHT = c->screenheight;
+	linewidth = c->linewidth;
+	screensize = c->screensize;
+	memcpy(ylookup, c->ylookup, sizeof(int) * c->screenheight);
+	bufferofs = c->buffer;
+	viewwidth = c->viewwidth;
+	viewheight = c->viewheight;
+	centerx = c->centerx;
+	centery = c->centery;
+	centeryfrac = c->centeryfrac;
+	screenofs = c->screenofs;
+	weaponscale = c->weaponscale;
+	yzangleconverter = c->yzangleconverter;
+	memcpy(pixelangle, c->pixelangle, sizeof(short) * c->viewwidth);
+	SetViewDelta(); // scale and heightnumerator, from the shared focalwidth
+}
+
+// the game's view rectangle scaled to the high-resolution screen
+static int HiResX(int x) { return x * hires_w / gamectx.screenwidth; }
+static int HiResY(int y) { return y * hires_h / gamectx.screenheight; }
+
+static void MakeHiResView(void)
+{
+	int i, hx, hy, height;
+
+	hires_lx = screenofs % linewidth;
+	hires_ly = screenofs / linewidth;
+	hires_lw = viewwidth;
+	hires_lh = viewheight;
+
+	iGLOBAL_SCREENWIDTH = hires_w;
+	iGLOBAL_SCREENHEIGHT = hires_h;
+	linewidth = hires_w;
+	screensize = hires_w * hires_h;
+	for (i = 0; i < hires_h; i++)
+		ylookup[i] = i * hires_w;
+	bufferofs = hires_surface->pixels;
+
+	hx = HiResX(hires_lx);
+	hy = HiResY(hires_ly);
+	viewwidth = HiResX(hires_lx + hires_lw) - hx;
+	viewheight = (HiResY(hires_ly + hires_lh) - hy) & ~1;
+
+	height = viewheight;
+	if (height > 168 * iGLOBAL_SCREENHEIGHT / 200)
+		height = 168 * iGLOBAL_SCREENHEIGHT / 200; // as SetViewSize: weapon size
+	weaponscale = (height << 16) / 168;
+	centerx = viewwidth >> 1;
+	centery = viewheight >> 1;
+	centeryfrac = (centery << 16);
+	yzangleconverter = (0xaf85 * viewheight) / iGLOBAL_SCREENHEIGHT;
+	screenofs = hx + ylookup[hy];
+
+	SetViewDelta();
+	CalcProjection();
+	SaveViewContext(&hirectx);
+	hires_dirty = false;
+}
+
+void HiRes_ViewChanged(void)
+{
+	hires_dirty = true;
+}
+
+// bufferofs at the screen's start (not the view's) on both calls
+void HiRes_Begin(void)
+{
+	if (!hires_w || hires_in || StretchScreen)
+		return;
+	SaveViewContext(&gamectx);
+	if (hires_dirty)
+		MakeHiResView();
+	else
+		LoadViewContext(&hirectx);
+	hires_in = true;
+	hires_valid = true;
+}
+
+void HiRes_End(void)
+{
+	int y;
+
+	if (!hires_in)
+		return;
+	SaveViewContext(&hirectx); // the renderer may have changed the projection (focal width)
+	LoadViewContext(&gamectx);
+	hires_in = false;
+
+	// the view area of the game's screen: see-through
+	for (y = 0; y < hires_lh; y++)
+		memset(bufferofs + ylookup[hires_ly + y] + hires_lx, HIRES_KEY, hires_lw);
+}
+
+// Before an effect works on the game's screen (rotations): the 3D layer
+// scaled down into the view area, and then no 3D layer
+void HiRes_Flatten(void)
+{
+	int x, y, sx, sy;
+	byte *src;
+
+	if (!hires_w || !hires_valid)
+		return;
+	src = hires_surface->pixels;
+	for (y = 0; y < hires_lh; y++)
+	{
+		sy = HiResY(hires_ly + y);
+		for (x = 0; x < hires_lw; x++)
+		{
+			sx = HiResX(hires_lx + x);
+			bufferofs[ylookup[hires_ly + y] + hires_lx + x] = src[sy * hires_w + sx];
+		}
+	}
+	hires_valid = false;
+}
+#endif

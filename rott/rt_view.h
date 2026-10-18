@@ -127,4 +127,11 @@ void SetModemLightLevel(int type);
 int GetLightRateTile(void);
 int GetLightLevelTile(void);
 
+#ifdef __EMSCRIPTEN__
+void HiRes_ViewChanged(void);
+void HiRes_Begin(void);
+void HiRes_End(void);
+void HiRes_Flatten(void);
+#endif
+
 #endif

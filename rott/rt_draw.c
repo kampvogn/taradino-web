@@ -2491,6 +2491,9 @@ void ThreeDRefresh(void)
 
 	RestoreMessageBackground();
 
+#ifdef __EMSCRIPTEN__
+	HiRes_Begin(); // the 3D view at high resolution, if the page asked for it
+#endif
 	bufferofs += screenofs;
 
 	RefreshClear();
@@ -2540,7 +2543,16 @@ void ThreeDRefresh(void)
 
 		if (player->flags & FL_GASMASK)
 			DrawScreenSizedSprite(gmasklump);
+	}
 
+#ifdef __EMSCRIPTEN__
+	bufferofs -= screenofs;
+	HiRes_End(); // back to the game's screen (status bar, text)
+	bufferofs += screenofs;
+#endif
+
+	if (!missobj)
+	{
 		if (SHOW_PLAYER_STATS())
 		{
 			DrawStats();
@@ -2738,8 +2750,6 @@ byte *RotatedImage;
 boolean RotateBufferStarted = false;
 void StartupRotateBuffer(int masked)
 {
-	if (iGLOBAL_SCREENHEIGHT > 480) // kampvogn.dk: the rotation buffer is made for 480 lines (not yet)
-		return;
 	int k; ////zxcv
 	int a, b;
 
@@ -2747,6 +2757,10 @@ void StartupRotateBuffer(int masked)
 
 	if (RotateBufferStarted == true)
 		return;
+
+#ifdef __EMSCRIPTEN__
+	HiRes_Flatten(); // the effect turns the game's screen: put the 3D layer into it
+#endif
 
 	RotateBufferStarted = true;
 
@@ -2841,8 +2855,6 @@ void ShutdownRotateBuffer(void)
 void ScaleAndRotateBuffer(int startangle, int endangle, int startscale,
 						  int endscale, int time)
 {
-	if (iGLOBAL_SCREENHEIGHT > 480) // kampvogn.dk: the rotation buffer is made for 480 lines (not yet)
-		return;
 	int anglestep;
 	int scalestep;
 	int angle;
@@ -2910,8 +2922,6 @@ void ScaleAndRotateBuffer(int startangle, int endangle, int startscale,
 void RotateBuffer(int startangle, int endangle, int startscale, int endscale,
 				  int time)
 {
-	if (iGLOBAL_SCREENHEIGHT > 480) // kampvogn.dk: the rotation buffer is made for 480 lines (not yet)
-		return;
 	StartupRotateBuffer(0);
 
 	ScaleAndRotateBuffer(startangle, endangle, startscale, endscale, time);

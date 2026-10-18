@@ -1980,6 +1980,12 @@ void CheckRemoteRidicule(int scancode)
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 EM_JS(int, web_wanted_width, (), { return Module.wantWidth | 0; });
+// the 3D layer's size the page wants: (w << 16) | h, 0 for none, -1 for no change
+EM_JS(int, web_wanted_hires, (), {
+	const r = Module.wantHires;
+	if (r === undefined) return -1;
+	return r ? (r[0] << 16) | r[1] : 0;
+});
 #endif
 
 void PollKeyboard(void)
@@ -2076,8 +2082,15 @@ void PollKeyboard(void)
 
 #ifdef __EMSCRIPTEN__
 		// kampvogn.dk: the page wants another width (the window turned)
-		if (VL_ChangeScreenWidth(web_wanted_width()))
-			SetupScreen(true);
+		{
+			// width first (the game's screen), then the 3D layer at that shape
+			boolean changed = VL_ChangeScreenWidth(web_wanted_width());
+			int hr = web_wanted_hires();
+			if (hr >= 0 && VL_ChangeHiRes(hr >> 16, hr & 0xffff))
+				changed = true;
+			if (changed)
+				SetupScreen(true);
+		}
 #endif
 
 		// Shrink screen
