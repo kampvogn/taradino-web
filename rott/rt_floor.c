@@ -69,7 +69,7 @@ byte *mr_src;
 static byte *rtfloor;
 static byte *rtceiling;
 // static int xstarts[MAXVIEWHEIGHT];
-static int xstarts[600]; // set to max hight res
+static int xstarts[MAXSCREENHEIGHT]; // set to max hight res
 static byte *skysegs[MAXSKYSEGS];
 static byte *skydata[MAXSKYDATA];
 static int horizonheight;

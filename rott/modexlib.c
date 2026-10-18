@@ -35,7 +35,7 @@ byte *iG_buf_center;
 
 int linewidth;
 // int    ylookup[MAXSCREENHEIGHT];
-int ylookup[600]; // just set to max res
+int ylookup[MAXSCREENHEIGHT]; // just set to max res
 byte *SCREEN_BUFFER;
 int screensize;
 byte *bufferofs;
@@ -498,8 +498,10 @@ static void StretchMemPicture()
 
 	// wide screens: the 320x200 screens (menus, titles) keep 4:3 in the
 	// middle, black at the sides
-	dest.w = iGLOBAL_SCREENWIDTH > 640 ? 640 : iGLOBAL_SCREENWIDTH;
 	dest.h = iGLOBAL_SCREENHEIGHT;
+	dest.w = iGLOBAL_SCREENHEIGHT * 4 / 3; // a 4:3 box: 640x480, 1440x1080
+	if (dest.w > iGLOBAL_SCREENWIDTH)
+		dest.w = iGLOBAL_SCREENWIDTH;
 	dest.x = (iGLOBAL_SCREENWIDTH - dest.w) / 2;
 	dest.y = 0;
 	if (dest.x > 0)

@@ -2738,6 +2738,8 @@ byte *RotatedImage;
 boolean RotateBufferStarted = false;
 void StartupRotateBuffer(int masked)
 {
+	if (iGLOBAL_SCREENHEIGHT > 480) // kampvogn.dk: the rotation buffer is made for 480 lines (not yet)
+		return;
 	int k; ////zxcv
 	int a, b;
 
@@ -2839,6 +2841,8 @@ void ShutdownRotateBuffer(void)
 void ScaleAndRotateBuffer(int startangle, int endangle, int startscale,
 						  int endscale, int time)
 {
+	if (iGLOBAL_SCREENHEIGHT > 480) // kampvogn.dk: the rotation buffer is made for 480 lines (not yet)
+		return;
 	int anglestep;
 	int scalestep;
 	int angle;
@@ -2906,6 +2910,8 @@ void ScaleAndRotateBuffer(int startangle, int endangle, int startscale,
 void RotateBuffer(int startangle, int endangle, int startscale, int endscale,
 				  int time)
 {
+	if (iGLOBAL_SCREENHEIGHT > 480) // kampvogn.dk: the rotation buffer is made for 480 lines (not yet)
+		return;
 	StartupRotateBuffer(0);
 
 	ScaleAndRotateBuffer(startangle, endangle, startscale, endscale, time);

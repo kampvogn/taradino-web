@@ -164,8 +164,9 @@ void ChangeFocalWidth(int amount)
 
 static int ProjectionCenterX(void)
 {
-	if (iGLOBAL_SCREENWIDTH > 640 && viewwidth == iGLOBAL_SCREENWIDTH)
-		return centerx * 640 / iGLOBAL_SCREENWIDTH;
+	const int box = iGLOBAL_SCREENHEIGHT * 4 / 3; // the 4:3 width at this height
+	if (iGLOBAL_SCREENWIDTH > box && viewwidth == iGLOBAL_SCREENWIDTH)
+		return centerx * box / iGLOBAL_SCREENWIDTH;
 	return centerx;
 }
 
@@ -302,9 +303,18 @@ void SetViewSize(int size)
 		viewsizes[height++] = 640;
 		viewsizes[height++] = 480;
 
+		// taller screens: the 640x480 sizes scaled by the height (widths a
+		// multiple of 16, heights even)
+		if (iGLOBAL_SCREENHEIGHT > 480)
+			for (height = 0; height < MAXVIEWSIZES * 2; height += 2)
+			{
+				viewsizes[height] = viewsizes[height] * iGLOBAL_SCREENHEIGHT / 480 / 16 * 16;
+				viewsizes[height + 1] = viewsizes[height + 1] * iGLOBAL_SCREENHEIGHT / 480 / 2 * 2;
+			}
+
 		// wide screens: the full-width sizes use the whole width
 		for (height = 0; height < MAXVIEWSIZES * 2; height += 2)
-			if (viewsizes[height] == 640)
+			if (viewsizes[height] >= iGLOBAL_SCREENHEIGHT * 4 / 3 / 16 * 16)
 				viewsizes[height] = iGLOBAL_SCREENWIDTH;
 	}
 

@@ -445,7 +445,9 @@ $('mpstart').addEventListener('click', () => {
 
 // The game's width at 480 high: the window's shape when the game starts, 640 (the original
 // 4:3) to 1024 (about 2.1:1), or 640 with "Classic 4:3". ?w=864 forces a width (tests).
-let SCREEN_W = 640;
+let SCREEN_W = 640, SCREEN_H = 480;
+// ?res=WxH (taller than 480: tests of the high-resolution renderer)
+const forcedRes = (new URLSearchParams(location.search).get('res') || '').match(/^(\d+)x(\d+)$/);
 function screenWidth() {
 	const forced = +new URLSearchParams(location.search).get('w');
 	if (forced >= 640 && forced <= 1024 && forced % 16 === 0) return forced;
@@ -459,8 +461,8 @@ $('classic').addEventListener('change', () => { try { localStorage.setItem('rott
 // changes its width while playing when the window turns (Module.wantWidth,
 // read in PollKeyboard), so the aspect is the canvas's own.
 function fit() {
-	const c = $('canvas'), ar = (c.width >= 640 ? c.width : SCREEN_W) / 480;
-	if (window.Module && window.__started) Module.wantWidth = screenWidth();
+	const c = $('canvas'), ar = c.width >= 640 ? c.width / c.height : SCREEN_W / SCREEN_H;
+	if (window.Module && window.__started && !forcedRes) Module.wantWidth = screenWidth();
 	const w = Math.min(innerWidth, innerHeight * ar), h = w / ar;
 	Object.assign(c.style, { width: w + 'px', height: h + 'px', left: (innerWidth - w) / 2 + 'px', top: (innerHeight - h) / 2 + 'px' });
 }
@@ -619,6 +621,7 @@ for (const ev of ['click', 'touchend', 'keydown']) addEventListener(ev, unlockAu
 // files with the registered build (full/)
 async function start(mode = 'shareware', own = null, net = null) {
 	SCREEN_W = screenWidth();
+	if (forcedRes) { SCREEN_W = +forcedRes[1]; SCREEN_H = +forcedRes[2]; }
 	$('start').hidden = true;
 	$('status').hidden = false;
 	$('msg').textContent = 'Loading…';
@@ -672,7 +675,7 @@ async function start(mode = 'shareware', own = null, net = null) {
 	$('canvas').focus();
 	window.__started = true;
 	// always explicit: the game would otherwise take the width saved in its config
-	Module.callMain([...(net ? ['-net'] : []), '-resolution', SCREEN_W + 'x480']);
+	Module.callMain([...(net ? ['-net'] : []), '-resolution', SCREEN_W + 'x' + SCREEN_H]);
 }
 
 const launch = (mode, own, net) => start(mode, own, net).catch((e) => {
