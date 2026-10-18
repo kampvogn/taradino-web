@@ -10,6 +10,9 @@ WebAssembly with Emscripten and adds network play in the browser. It runs at
   `REMOTE1.RTS`, `ROTTCD.RTC`). The files stay in the browser (Cache Storage).
 - **Multiplayer (COMM-BAT)**: up to 5 players (shareware) or 11 (full version) through a small
   WebSocket relay. Everyone opens the same invite link and one player presses Start.
+- **Touch screens** (phones, tablets): a stick where the left thumb lands (walk, turn, run when pushed
+  all the way) and FIRE, USE/OK, GUN, SIDE (strafe), MENU and MAP buttons. They send the keys a keyboard
+  would, so the game is unchanged. `?touch` shows them on any screen.
 
 ## Changes to taradino
 

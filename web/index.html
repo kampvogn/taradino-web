@@ -53,6 +53,26 @@
 	#fs.idle { opacity: 0; }
 	#fs:hover { opacity: 1; }
 	a { color: #cb9; }
+	/* touch controls (phones and tablets): a stick where the left thumb lands, buttons on the right */
+	#touch { position: fixed; inset: 0; z-index: 1; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+	#touch[hidden] { display: none; }
+	#touch button {
+		position: absolute; border-radius: 50%; border: 2px solid rgba(255, 190, 110, .45); background: rgba(40, 20, 0, .28);
+		color: rgba(255, 220, 170, .8); font: 600 11px/1 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .05em;
+		touch-action: none; -webkit-tap-highlight-color: transparent; padding: 0;
+	}
+	#touch button.on { background: rgba(255, 160, 50, .45); border-color: rgba(255, 200, 120, .9); }
+	#tfire { width: 92px; height: 92px; right: max(24px, env(safe-area-inset-right)); bottom: max(26px, env(safe-area-inset-bottom)); font-size: 13px; }
+	#tuse { width: 64px; height: 64px; right: max(126px, calc(env(safe-area-inset-right) + 102px)); bottom: max(30px, env(safe-area-inset-bottom)); }
+	#tswap { width: 56px; height: 56px; right: max(40px, calc(env(safe-area-inset-right) + 16px)); bottom: max(132px, calc(env(safe-area-inset-bottom) + 106px)); }
+	#tstrafe { width: 56px; height: 56px; right: max(118px, calc(env(safe-area-inset-right) + 94px)); bottom: max(110px, calc(env(safe-area-inset-bottom) + 84px)); }
+	#tesc, #tmap { width: 44px; height: 44px; top: max(10px, env(safe-area-inset-top)); border-radius: 8px; }
+	#tesc { left: max(10px, env(safe-area-inset-left)); }
+	#tmap { left: max(62px, calc(env(safe-area-inset-left) + 52px)); }
+	#stick, #knob { position: absolute; border-radius: 50%; pointer-events: none; }
+	#stick { width: 130px; height: 130px; margin: -65px 0 0 -65px; border: 2px solid rgba(255, 190, 110, .35); background: rgba(40, 20, 0, .18); }
+	#knob { width: 54px; height: 54px; margin: -27px 0 0 -27px; background: rgba(255, 190, 110, .45); }
+	#stick[hidden], #knob[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -120,6 +140,12 @@
 </div>
 <div id="status" class="overlay" hidden><span id="msg"></span><div id="bar"><div></div></div></div>
 <button id="fs" type="button" hidden>⛶ Fullscreen</button>
+<div id="touch" hidden>
+	<div id="stick" hidden></div><div id="knob" hidden></div>
+	<button id="tesc" type="button">MENU</button><button id="tmap" type="button">MAP</button>
+	<button id="tstrafe" type="button">SIDE</button><button id="tswap" type="button">GUN</button>
+	<button id="tuse" type="button">USE<br>OK</button><button id="tfire" type="button">FIRE</button>
+</div>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -455,6 +481,73 @@ function fullscreenButton() {
 	sync(); btn.hidden = false; wake();
 }
 
+// Touch controls: the game reads the keyboard, so the stick and buttons send
+// the keys a keyboard would (SDL listens on the window). The stick appears
+// where the left thumb lands: up/down walk, left/right turn, pushed all the
+// way it runs; with SIDE held, left/right strafe. USE (space) is also OK in
+// the menus, MENU is Escape.
+function touchControls() {
+	const KEYS = {
+		up: ['ArrowUp', 38, 'ArrowUp'], down: ['ArrowDown', 40, 'ArrowDown'], left: ['ArrowLeft', 37, 'ArrowLeft'], right: ['ArrowRight', 39, 'ArrowRight'],
+		fire: ['ControlLeft', 17, 'Control', 1], strafe: ['AltLeft', 18, 'Alt', 1], run: ['ShiftRight', 16, 'Shift', 2],
+		use: ['Space', 32, ' '], swap: ['Enter', 13, 'Enter'], map: ['Tab', 9, 'Tab'], esc: ['Escape', 27, 'Escape'],
+	};
+	const held = {};
+	const key = (name, down) => {
+		if (!!held[name] === down) return;
+		held[name] = down;
+		const [code, keyCode, k, location] = KEYS[name];
+		const ev = new KeyboardEvent(down ? 'keydown' : 'keyup', { code, key: k, location: location || 0, bubbles: true, cancelable: true });
+		for (const p of ['keyCode', 'which']) Object.defineProperty(ev, p, { get: () => keyCode });
+		window.dispatchEvent(ev);
+	};
+	const pad = $('touch'), stick = $('stick'), knob = $('knob');
+	pad.hidden = false;
+	// buttons: held while touched
+	for (const [id, name] of [['tfire', 'fire'], ['tuse', 'use'], ['tswap', 'swap'], ['tstrafe', 'strafe'], ['tmap', 'map'], ['tesc', 'esc']]) {
+		const b = $(id);
+		const up = (e) => { e.preventDefault(); b.classList.remove('on'); key(name, false); };
+		b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); b.setPointerCapture(e.pointerId); b.classList.add('on'); key(name, true); });
+		b.addEventListener('pointerup', up);
+		b.addEventListener('pointercancel', up);
+		b.addEventListener('lostpointercapture', up);
+	}
+	// stick: any touch on the free area
+	let sid = null, ox = 0, oy = 0;
+	const R = 58, DEAD = 0.28;
+	const setDir = (dx, dy) => {
+		const d = Math.hypot(dx, dy) / R;
+		key('up', dy < -DEAD * R); key('down', dy > DEAD * R);
+		key('left', dx < -DEAD * R); key('right', dx > DEAD * R);
+		key('run', d > 0.95);
+	};
+	pad.addEventListener('pointerdown', (e) => {
+		if (e.target !== pad || sid !== null) return;
+		e.preventDefault();
+		sid = e.pointerId; ox = e.clientX; oy = e.clientY;
+		pad.setPointerCapture(sid);
+		stick.style.left = knob.style.left = ox + 'px'; stick.style.top = knob.style.top = oy + 'px';
+		stick.hidden = knob.hidden = false;
+	});
+	pad.addEventListener('pointermove', (e) => {
+		if (e.pointerId !== sid) return;
+		let dx = e.clientX - ox, dy = e.clientY - oy;
+		const d = Math.hypot(dx, dy);
+		if (d > R) { dx *= R / d; dy *= R / d; }
+		knob.style.left = ox + dx + 'px'; knob.style.top = oy + dy + 'px';
+		setDir(dx, dy);
+	});
+	const end = (e) => {
+		if (e.pointerId !== sid) return;
+		sid = null; stick.hidden = knob.hidden = true; setDir(0, 0);
+	};
+	pad.addEventListener('pointerup', end);
+	pad.addEventListener('pointercancel', end);
+	// a page in the background must not keep a key down
+	document.addEventListener('visibilitychange', () => { if (document.hidden) for (const n in held) key(n, false); });
+}
+const isTouch = () => matchMedia('(pointer: coarse)').matches || new URLSearchParams(location.search).has('touch');
+
 const lastLines = [];
 function stopped(mode, text) {
 	$('canvas').style.visibility = 'hidden';
@@ -534,6 +627,7 @@ async function start(mode = 'shareware', own = null, net = null) {
 	setInterval(fit, 1000);
 	fit();
 	fullscreenButton();
+	if (isTouch()) touchControls();
 	$('canvas').focus();
 	window.__started = true;
 	// always explicit: the game would otherwise take the width saved in its config
